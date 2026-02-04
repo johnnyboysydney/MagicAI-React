@@ -1,0 +1,187 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ==== USER DATA ====
+    // Users can read and write their own documents
+    match /users/{userId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Admins can read all user profiles
+      allow read: if request.auth != null && isAdmin(request.auth);
+      // Only admins can modify admin-related fields
+      allow update: if request.auth != null && isAdmin(request.auth);
+    }
+    
+    // User subscription data - users can read their own, admins can read/write all
+    match /user_subscriptions/{userId} {
+      allow read: if request.auth != null && 
+        (request.auth.uid == userId || isAdmin(request.auth));
+      allow write: if request.auth != null && isAdmin(request.auth);
+    }
+    
+    // ==== DECK DATA ====
+    // Users can read and write their own decks
+    match /decks/{deckId} {
+      // Owner full access
+      allow read, write: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      // Public decks readable by anyone authenticated
+      allow read: if request.auth != null && resource.data.isPublic == true;
+      // Admins can read all decks
+      allow read: if request.auth != null && isAdmin(request.auth);
+      // Allow authenticated users to update only rating fields on public decks
+      allow update: if request.auth != null && resource.data.isPublic == true &&
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['rating', 'ratingCount', 'commentCount']);
+
+      // Ratings subcollection - users can read all, write their own rating
+      match /ratings/{ratingUserId} {
+        allow read: if request.auth != null;
+        allow write: if request.auth != null && request.auth.uid == ratingUserId;
+      }
+
+      // Comments subcollection - authenticated users can read and create, delete own
+      match /comments/{commentId} {
+        allow read: if request.auth != null;
+        allow create: if request.auth != null
+          && request.auth.uid == request.resource.data.userId
+          && !isCommentProfane(request.resource.data.text);
+        allow delete: if request.auth != null && request.auth.uid == resource.data.userId;
+      }
+    }
+    
+    // Users can read and write their own decks in user-decks collection
+    match /user-decks/{deckId} {
+      allow read, write: if request.auth != null && resource.data.userId == request.auth.uid;
+      allow create: if request.auth != null && request.auth.uid == request.resource.data.userId;
+      // Allow reading public decks
+      allow read: if resource.data.isPublic == true;
+      // Admins can read all decks
+      allow read: if request.auth != null && isAdmin(request.auth);
+    }
+    
+    // ==== ADMIN DATA (HIGHLY RESTRICTED) ====
+    // Admin roles - only system owners can modify
+    match /admin_roles/{userId} {
+      allow read: if request.auth != null && isAdmin(request.auth);
+      allow write: if request.auth != null && isOwner(request.auth);
+    }
+    
+    // Admin activity logs - admins can read, system logs automatically
+    match /admin_logs/{logId} {
+      allow read: if request.auth != null && isAdmin(request.auth);
+      allow create: if request.auth != null && isAdmin(request.auth);
+    }
+    
+    // ==== FINANCIAL DATA (MAXIMUM SECURITY) ====
+    // Subscription transactions - only admins, encrypted sensitive data
+    match /transactions/{transactionId} {
+      allow read: if request.auth != null && isSuperAdmin(request.auth);
+      allow write: if request.auth != null && isSuperAdmin(request.auth);
+    }
+    
+    // Payment methods - only admins, never store full card numbers
+    match /payment_methods/{paymentId} {
+      allow read: if request.auth != null && 
+        (resource.data.userId == request.auth.uid || isSuperAdmin(request.auth));
+      allow write: if request.auth != null && isSuperAdmin(request.auth);
+    }
+    
+    // Revenue analytics - super admins only
+    match /revenue_analytics/{analyticsId} {
+      allow read, write: if request.auth != null && isSuperAdmin(request.auth);
+    }
+    
+    // Tax documents - super admins only
+    match /tax_documents/{docId} {
+      allow read, write: if request.auth != null && isSuperAdmin(request.auth);
+    }
+    
+    // BAS/Quarterly reports - super admins only
+    match /bas_reports/{reportId} {
+      allow read, write: if request.auth != null && isSuperAdmin(request.auth);
+    }
+    
+    // Financial metrics - super admins only
+    match /financial_metrics/{metricId} {
+      allow read, write: if request.auth != null && isSuperAdmin(request.auth);
+    }
+    
+    // Stripe webhook logs - system only (no user access)
+    match /stripe_webhooks/{webhookId} {
+      allow read, write: if false; // Only Cloud Functions can access
+    }
+
+    // Moderation logs - system only, admins can read
+    match /moderation_log/{logId} {
+      allow read: if request.auth != null && isAdmin(request.auth);
+      allow write: if false; // Only Cloud Functions can write
+    }
+    
+    // ==== SUBSCRIPTION DATA ====
+    // Subscription plans - public read, admin write
+    match /subscription_plans/{planId} {
+      allow read: if true;
+      allow write: if request.auth != null && isAdmin(request.auth);
+    }
+    
+    // Subscription usage tracking
+    match /usage_tracking/{userId} {
+      allow read: if request.auth != null && 
+        (request.auth.uid == userId || isAdmin(request.auth));
+      allow write: if request.auth != null && isAdmin(request.auth);
+    }
+    
+    // ==== ADMIN NOTES ====
+    // Admin notes about users - admins only
+    match /admin_notes/{noteId} {
+      allow read, write: if request.auth != null && isAdmin(request.auth);
+    }
+    
+    // ==== FEATURE FLAGS ====
+    // Feature flags - read by authenticated users, write by admins
+    match /feature_flags/{flagId} {
+      allow read: if request.auth != null;
+      allow write: if request.auth != null && isAdmin(request.auth);
+    }
+    
+    // ==== PUBLIC DATA ====
+    // Public read access for shared content
+    match /public/{document=**} {
+      allow read: if true;
+      allow write: if request.auth != null && isAdmin(request.auth);
+    }
+    
+    // ==== HELPER FUNCTIONS ====
+    function isCommentProfane(text) {
+      return text.lower().matches('.*(fuck|shit|bitch|asshole|bastard|cunt|dick|piss|slut|whore|faggot|retard|nigger|nigga|stfu|gtfo|twat|wanker|arsehole|bellend|kys).*');
+    }
+
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+    
+    function isAdmin(auth) {
+      return auth != null && 
+        exists(/databases/$(database)/documents/admin_roles/$(auth.uid)) &&
+        get(/databases/$(database)/documents/admin_roles/$(auth.uid)).data.role in 
+          ['admin', 'super_admin', 'owner'];
+    }
+    
+    function isSuperAdmin(auth) {
+      return auth != null && 
+        exists(/databases/$(database)/documents/admin_roles/$(auth.uid)) &&
+        get(/databases/$(database)/documents/admin_roles/$(auth.uid)).data.role in 
+          ['super_admin', 'owner'];
+    }
+    
+    function isOwner(auth) {
+      return auth != null && 
+        exists(/databases/$(database)/documents/admin_roles/$(auth.uid)) &&
+        get(/databases/$(database)/documents/admin_roles/$(auth.uid)).data.role == 'owner';
+    }
+    
+    // Default: deny all other access
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

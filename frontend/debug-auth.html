@@ -1,0 +1,98 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Firebase Auth Debug</title>
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase-app.js';
+        import { getAuth, signInWithPopup, GoogleAuthProvider } from 'https://www.gstatic.com/firebasejs/9.0.0/firebase-auth.js';
+        
+        // Your Firebase config
+        const firebaseConfig = {
+            apiKey: "AIzaSyA3BZF7RvWPmzXuxRr86z2JJb2ljY6zOHo",
+            authDomain: "magicai-deck-analyzer.firebaseapp.com",
+            projectId: "magicai-deck-analyzer",
+            storageBucket: "magicai-deck-analyzer.firebasestorage.app",
+            messagingSenderId: "629336035680",
+            appId: "1:629336035680:web:78831facc6f26315320e05",
+            measurementId: "G-4735NHT3QW"
+        };
+        
+        // Initialize Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const provider = new GoogleAuthProvider();
+        
+        window.testGoogleSignIn = async function() {
+            const logDiv = document.getElementById('log');
+            logDiv.innerHTML = '<p>Testing Google Sign-In...</p>';
+            
+            try {
+                console.log('Domain:', window.location.hostname);
+                console.log('Firebase Auth Domain:', firebaseConfig.authDomain);
+                
+                logDiv.innerHTML += '<p>✅ Firebase initialized successfully</p>';
+                logDiv.innerHTML += '<p>🌍 Current domain: ' + window.location.hostname + '</p>';
+                logDiv.innerHTML += '<p>🔗 Firebase auth domain: ' + firebaseConfig.authDomain + '</p>';
+                
+                const result = await signInWithPopup(auth, provider);
+                const user = result.user;
+                
+                logDiv.innerHTML += '<p>✅ Google Sign-In successful!</p>';
+                logDiv.innerHTML += '<p>👤 User: ' + user.email + '</p>';
+                logDiv.innerHTML += '<p>🎯 UID: ' + user.uid + '</p>';
+                
+            } catch (error) {
+                console.error('Google Sign-In error:', error);
+                logDiv.innerHTML += '<p>❌ Error: ' + error.code + '</p>';
+                logDiv.innerHTML += '<p>📝 Message: ' + error.message + '</p>';
+                
+                if (error.code === 'auth/unauthorized-domain') {
+                    logDiv.innerHTML += '<p>🚨 Domain not authorized! Add "' + window.location.hostname + '" to Firebase Auth authorized domains.</p>';
+                }
+                if (error.code === 'auth/popup-blocked') {
+                    logDiv.innerHTML += '<p>🚨 Popup blocked! Please allow popups for this site.</p>';
+                }
+                if (error.code === 'auth/popup-closed-by-user') {
+                    logDiv.innerHTML += '<p>🚨 Popup closed by user.</p>';
+                }
+            }
+        };
+        
+        window.signOutTest = async function() {
+            try {
+                await auth.signOut();
+                document.getElementById('log').innerHTML += '<p>✅ Signed out successfully</p>';
+            } catch (error) {
+                document.getElementById('log').innerHTML += '<p>❌ Sign out error: ' + error.message + '</p>';
+            }
+        };
+    </script>
+</head>
+<body style="font-family: Arial, sans-serif; padding: 20px;">
+    <h1>Firebase Authentication Debug Tool</h1>
+    
+    <p>This tool will help you debug Google Sign-In issues.</p>
+    
+    <button onclick="testGoogleSignIn()" style="background: #4285f4; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 10px 0;">
+        🔑 Test Google Sign-In
+    </button>
+    
+    <button onclick="signOutTest()" style="background: #db4437; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer; margin: 10px 0;">
+        🚪 Sign Out
+    </button>
+    
+    <div id="log" style="margin-top: 20px; padding: 20px; background: #f5f5f5; border-radius: 5px; min-height: 200px;">
+        <p>Click "Test Google Sign-In" to start debugging...</p>
+    </div>
+    
+    <div style="margin-top: 20px; padding: 20px; background: #e8f5e8; border-radius: 5px;">
+        <h3>Common Issues & Solutions:</h3>
+        <ul>
+            <li><strong>auth/unauthorized-domain:</strong> Add your domain to Firebase Console → Authentication → Settings → Authorized domains</li>
+            <li><strong>auth/popup-blocked:</strong> Allow popups for this site in your browser settings</li>
+            <li><strong>auth/popup-closed-by-user:</strong> User closed the popup - try again</li>
+            <li><strong>Network errors:</strong> Check your internet connection and firewall settings</li>
+        </ul>
+    </div>
+</body>
+</html>

@@ -1,7 +1,12 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useRef, useCallback } from 'react'
 import type { DeckCard, ScryfallCard, CardType } from '../../types/card'
 import { getCardImageUrl, isLegendaryCreature } from '../../types/card'
 import './DeckView.css'
+
+interface HoveredCard {
+  card: DeckCard
+  position: { top: number; left: number }
+}
 
 interface DeckViewProps {
   deckCards: Map<string, DeckCard>
@@ -49,6 +54,62 @@ export default function DeckView({
   const [isDragOver, setIsDragOver] = useState(false)
   const [isCommanderDragOver, setIsCommanderDragOver] = useState(false)
   const [commanderDropError, setCommanderDropError] = useState<string | null>(null)
+
+  // Hover preview state for deck cards - using fixed positioning to avoid clipping
+  const [hoveredCard, setHoveredCard] = useState<HoveredCard | null>(null)
+  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  const handleCardMouseEnter = useCallback((card: DeckCard, e: React.MouseEvent<HTMLImageElement>) => {
+    // Clear any pending hide timeout
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current)
+      hideTimeoutRef.current = null
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect()
+    const viewportHeight = window.innerHeight
+    const previewHeight = 420 // Approximate height of preview (card image + info bar)
+
+    // Calculate ideal center position
+    let top = rect.top + rect.height / 2
+
+    // If preview would extend below viewport, move it up
+    if (top + previewHeight / 2 > viewportHeight - 20) {
+      top = viewportHeight - previewHeight / 2 - 20
+    }
+
+    // If preview would extend above viewport, move it down
+    if (top - previewHeight / 2 < 20) {
+      top = previewHeight / 2 + 20
+    }
+
+    setHoveredCard({
+      card,
+      position: {
+        top,
+        left: rect.right + 10,
+      },
+    })
+  }, [])
+
+  const handleCardMouseLeave = useCallback(() => {
+    // Delay hiding to allow moving to the popup
+    hideTimeoutRef.current = setTimeout(() => {
+      setHoveredCard(null)
+    }, 100)
+  }, [])
+
+  const handlePopupMouseEnter = useCallback(() => {
+    // Cancel hide when entering popup
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current)
+      hideTimeoutRef.current = null
+    }
+  }, [])
+
+  const handlePopupMouseLeave = useCallback(() => {
+    setHoveredCard(null)
+  }, [])
 
   // Group cards by type
   const groupedCards = useMemo(() => {
@@ -180,11 +241,34 @@ export default function DeckView({
           )}
           {commander ? (
             <div className="commander-card">
-              <img
-                src={getCardImageUrl(commander.scryfallData, 'small')}
-                alt={commander.name}
-                className="commander-image"
-              />
+              <div className="commander-preview-wrapper">
+                <img
+                  src={getCardImageUrl(commander.scryfallData, 'small')}
+                  alt={commander.name}
+                  className="commander-image"
+                />
+                <div className="commander-preview-popup">
+                  <img
+                    src={getCardImageUrl(commander.scryfallData, 'normal')}
+                    alt={commander.name}
+                    className="preview-image"
+                  />
+                  <div className="preview-info">
+                    <div className="preview-price">
+                      ${commander.price.toFixed(2)}
+                    </div>
+                    <a
+                      href={`https://scryfall.com/search?q=!"${encodeURIComponent(commander.name)}"`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="preview-link"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      View on Scryfall
+                    </a>
+                  </div>
+                </div>
+              </div>
               <div className="commander-info">
                 <span className="commander-name">{commander.name}</span>
                 <button
@@ -233,6 +317,15 @@ export default function DeckView({
                 <div className="group-cards">
                   {cards.map((card) => (
                     <div key={card.name} className="deck-card">
+                      <div className="card-preview-wrapper">
+                        <img
+                          src={getCardImageUrl(card.scryfallData, 'small')}
+                          alt={card.name}
+                          className="card-thumbnail"
+                          onMouseEnter={(e) => handleCardMouseEnter(card, e)}
+                          onMouseLeave={handleCardMouseLeave}
+                        />
+                      </div>
                       <span className="quantity">{card.quantity}x</span>
                       <span className="name" title={card.scryfallData.type_line}>
                         {card.name}
@@ -275,6 +368,39 @@ export default function DeckView({
       <div className="panel-footer">
         <small>💡 Drag cards here or use + button</small>
       </div>
+
+      {/* Fixed position popup that renders outside the scrollable area */}
+      {hoveredCard && (
+        <div
+          className="deck-card-preview-fixed"
+          style={{
+            top: hoveredCard.position.top,
+            left: hoveredCard.position.left,
+          }}
+          onMouseEnter={handlePopupMouseEnter}
+          onMouseLeave={handlePopupMouseLeave}
+        >
+          <img
+            src={getCardImageUrl(hoveredCard.card.scryfallData, 'normal')}
+            alt={hoveredCard.card.name}
+            className="preview-image"
+          />
+          <div className="preview-info">
+            <div className="preview-price">
+              ${hoveredCard.card.price.toFixed(2)}
+            </div>
+            <a
+              href={`https://scryfall.com/search?q=!"${encodeURIComponent(hoveredCard.card.name)}"`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="preview-link"
+              onClick={(e) => e.stopPropagation()}
+            >
+              View on Scryfall
+            </a>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

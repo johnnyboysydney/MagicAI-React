@@ -1,15 +1,16 @@
-import { useState, useCallback, useMemo } from 'react'
-import { Link } from 'react-router-dom'
+import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import SearchPanel from '../../components/SearchPanel/SearchPanel'
 import DeckView from '../../components/DeckView/DeckView'
 import StatsPanel from '../../components/StatsPanel/StatsPanel'
-import { scryfallToDeckCard, isLegendaryCreature } from '../../types/card'
+import CameraScanner from '../../components/CameraScanner/CameraScanner'
+import { useDeck } from '../../contexts/DeckContext'
+import { scryfallToDeckCard } from '../../types/card'
 import type { ScryfallCard, DeckCard } from '../../types/card'
 import {
   FORMAT_RULES,
   DECK_ARCHETYPES,
   generateDeckPrompt,
-  parseAIDeckResponse,
   fetchCardByName,
   type DeckArchetype,
   type DeckGenerationRequest,
@@ -28,15 +29,31 @@ const DECK_FORMATS = [
 ]
 
 export default function DeckBuilder() {
-  const [selectedFormat, setSelectedFormat] = useState('standard')
-  const [deckName, setDeckName] = useState('Untitled Deck')
-  const [deckCards, setDeckCards] = useState<Map<string, DeckCard>>(new Map())
-  const [commander, setCommander] = useState<DeckCard | null>(null)
+  const navigate = useNavigate()
+  const { setDeckForAnalysis, builderState, setBuilderState } = useDeck()
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  // Initialize from context (persisted state) or defaults
+  const [selectedFormat, setSelectedFormat] = useState(builderState.selectedFormat)
+  const [deckName, setDeckName] = useState(builderState.deckName)
+  const [deckCards, setDeckCards] = useState<Map<string, DeckCard>>(builderState.deckCards)
+  const [commander, setCommander] = useState<DeckCard | null>(builderState.commander)
   const [isSaving, setIsSaving] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [showGenerateModal, setShowGenerateModal] = useState(false)
   const [generationProgress, setGenerationProgress] = useState<string>('')
   const [generationError, setGenerationError] = useState<string | null>(null)
+  const [showScanner, setShowScanner] = useState(false)
+
+  // Persist deck state to context when it changes
+  useEffect(() => {
+    setBuilderState({
+      deckName,
+      selectedFormat,
+      deckCards,
+      commander,
+    })
+  }, [deckName, selectedFormat, deckCards, commander, setBuilderState])
 
   // AI Generation options
   const [selectedArchetype, setSelectedArchetype] = useState<DeckArchetype>('Midrange')
@@ -44,15 +61,51 @@ export default function DeckBuilder() {
   const [selectedBudget, setSelectedBudget] = useState<'budget' | 'moderate' | 'competitive'>('moderate')
   const [strategyNotes, setStrategyNotes] = useState('')
 
-  const isCommanderFormat = selectedFormat === 'commander'
+  // Validation error state
+  const [validationError, setValidationError] = useState<string | null>(null)
 
-  // Add card to deck
+  const isCommanderFormat = selectedFormat === 'commander'
+  const formatRules = FORMAT_RULES[selectedFormat] || FORMAT_RULES.standard
+
+  // Navigate to analysis with current deck data
+  const handleAnalyze = useCallback(() => {
+    if (deckCards.size === 0 && !commander) {
+      alert('Please add some cards to your deck first!')
+      return
+    }
+    setDeckForAnalysis(deckName, selectedFormat, deckCards, commander)
+    navigate('/analysis')
+  }, [deckName, selectedFormat, deckCards, commander, setDeckForAnalysis, navigate])
+
+  // Clear validation error after a delay
+  const showValidationError = useCallback((message: string) => {
+    setValidationError(message)
+    setTimeout(() => setValidationError(null), 4000)
+  }, [])
+
+  // Add card to deck with validation
   const handleAddCard = useCallback((card: ScryfallCard) => {
+    // Check if it's a basic land (unlimited copies allowed)
+    const isBasicLand = card.type_line?.toLowerCase().includes('basic') &&
+                        card.type_line?.toLowerCase().includes('land')
+
     setDeckCards((prev) => {
       const newMap = new Map(prev)
       const existing = newMap.get(card.name)
 
       if (existing) {
+        // Check quantity limits (unless basic land)
+        if (!isBasicLand) {
+          if (isCommanderFormat) {
+            // Commander is singleton - only 1 copy allowed
+            showValidationError(`Commander format is singleton! You can only have 1 copy of "${card.name}".`)
+            return prev // Don't modify
+          } else if (existing.quantity >= formatRules.maxCopies) {
+            // Standard/Modern etc - max 4 copies
+            showValidationError(`Maximum ${formatRules.maxCopies} copies allowed in ${formatRules.name}. "${card.name}" is already at max.`)
+            return prev // Don't modify
+          }
+        }
         // Increase quantity
         newMap.set(card.name, { ...existing, quantity: existing.quantity + 1 })
       } else {
@@ -62,7 +115,7 @@ export default function DeckBuilder() {
 
       return newMap
     })
-  }, [])
+  }, [isCommanderFormat, formatRules, showValidationError])
 
   // Remove card from deck (decrease quantity or remove entirely)
   const handleRemoveCard = useCallback((cardName: string) => {
@@ -73,7 +126,7 @@ export default function DeckBuilder() {
     })
   }, [])
 
-  // Update card quantity
+  // Update card quantity with validation
   const handleQuantityChange = useCallback((cardName: string, newQuantity: number) => {
     setDeckCards((prev) => {
       const newMap = new Map(prev)
@@ -83,13 +136,28 @@ export default function DeckBuilder() {
         if (newQuantity <= 0) {
           newMap.delete(cardName)
         } else {
+          // Check if it's a basic land
+          const isBasicLand = card.cardType === 'land' &&
+            ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest', 'Wastes'].includes(cardName)
+
+          // Validate quantity limits (unless basic land)
+          if (!isBasicLand) {
+            if (isCommanderFormat && newQuantity > 1) {
+              showValidationError(`Commander format is singleton! Max 1 copy of "${cardName}".`)
+              return prev
+            } else if (!isCommanderFormat && newQuantity > formatRules.maxCopies) {
+              showValidationError(`Maximum ${formatRules.maxCopies} copies allowed in ${formatRules.name}.`)
+              return prev
+            }
+          }
+
           newMap.set(cardName, { ...card, quantity: newQuantity })
         }
       }
 
       return newMap
     })
-  }, [])
+  }, [isCommanderFormat, formatRules, showValidationError])
 
   // Set commander
   const handleSetCommander = useCallback((card: ScryfallCard) => {
@@ -111,6 +179,12 @@ export default function DeckBuilder() {
   // Handle card drop
   const handleCardDrop = useCallback((card: ScryfallCard) => {
     handleAddCard(card)
+  }, [handleAddCard])
+
+  // Handle scanned cards from camera scanner
+  const handleScannedCards = useCallback((cards: ScryfallCard[]) => {
+    cards.forEach(card => handleAddCard(card))
+    setShowScanner(false)
   }, [handleAddCard])
 
   // Calculate deck stats
@@ -227,8 +301,52 @@ export default function DeckBuilder() {
   }
 
   const handleLoad = () => {
-    // TODO: Implement load from Firebase
-    console.log('Load clicked')
+    // Trigger file input click
+    fileInputRef.current?.click()
+  }
+
+  const handleFileLoad = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    try {
+      const text = await file.text()
+      const lines = text.split('\n').filter(line => line.trim())
+
+      // Clear current deck
+      const newCards = new Map<string, DeckCard>()
+
+      setGenerationProgress('Loading deck file...')
+
+      for (const line of lines) {
+        // Parse format: "4 Lightning Bolt" or "4x Lightning Bolt"
+        const match = line.match(/^(\d+)x?\s+(.+)$/i)
+        if (match) {
+          const quantity = parseInt(match[1], 10)
+          const cardName = match[2].trim()
+
+          try {
+            const card = await fetchCardByName(cardName)
+            if (card) {
+              const deckCard = scryfallToDeckCard(card, quantity)
+              newCards.set(cardName, deckCard)
+            }
+          } catch {
+            console.warn(`Could not find card: ${cardName}`)
+          }
+        }
+      }
+
+      setDeckCards(newCards)
+      setDeckName(file.name.replace(/\.(txt|dec|dek)$/i, ''))
+      setGenerationProgress('')
+    } catch (err) {
+      console.error('Error loading deck file:', err)
+      setGenerationError('Failed to load deck file')
+    }
+
+    // Reset file input
+    e.target.value = ''
   }
 
   const handleOpenGenerateModal = () => {
@@ -326,38 +444,368 @@ export default function DeckBuilder() {
     const rules = FORMAT_RULES[format] || FORMAT_RULES.standard
     const deck: Array<{ quantity: number; name: string }> = []
 
-    // Determine primary and secondary colors
+    // Determine colors
     const primaryColor = colors[0] || 'R'
     const secondaryColor = colors[1]
+    const tertiaryColor = colors[2]
 
     if (format === 'commander') {
-      // Commander deck - 99 cards + commander (singleton)
-      // Add commander first (marked with special flag)
+      // Commander deck - exactly 99 cards + commander = 100 total
+      const TARGET_CARDS = 99
+      const LAND_COUNT = rules.recommendedLands // 37 lands
+      const TARGET_NONLANDS = TARGET_CARDS - LAND_COUNT // 62 non-lands
+
+      // Track used card names to ensure singleton format
+      const usedCards = new Set<string>()
+
+      // Helper to add a card only if not already used
+      const addUniqueCard = (name: string): boolean => {
+        if (usedCards.has(name)) return false
+        usedCards.add(name)
+        deck.push({ quantity: 1, name })
+        return true
+      }
+
+      // Add commander (marked with -1, not counted in 99)
       const commanderName = getCommanderForColors(colors, archetype)
       if (commanderName) {
-        deck.push({ quantity: -1, name: commanderName }) // -1 signals this is the commander
+        deck.push({ quantity: -1, name: commanderName })
+        usedCards.add(commanderName) // Commander can't be in the 99
       }
-      deck.push(...getCommanderStaples())
-      deck.push(...getColorStaples(primaryColor, 1))
-      if (secondaryColor) {
-        deck.push(...getColorStaples(secondaryColor, 1))
+
+      // === NON-LAND CARDS (targeting 62 cards) ===
+      let nonLandCount = 0
+
+      // Core mana rocks (8 cards)
+      const staples = [
+        'Sol Ring', 'Arcane Signet', 'Lightning Greaves', 'Swiftfoot Boots',
+        'Thought Vessel', 'Mind Stone', 'Fellwar Stone', 'Commander\'s Sphere'
+      ]
+      staples.forEach(card => { if (addUniqueCard(card)) nonLandCount++ })
+
+      // Color staples (3 per color)
+      const colorStapleCards = getColorStaples(primaryColor, 1)
+      if (secondaryColor) colorStapleCards.push(...getColorStaples(secondaryColor, 1))
+      if (tertiaryColor) colorStapleCards.push(...getColorStaples(tertiaryColor, 1))
+      colorStapleCards.forEach(c => { if (addUniqueCard(c.name)) nonLandCount++ })
+
+      // Archetype cards
+      const archetypeCards = getArchetypeCards(archetype, 1)
+      archetypeCards.forEach(c => { if (addUniqueCard(c.name)) nonLandCount++ })
+
+      // Utility package (without Commander's Sphere - already in staples)
+      const utilityCards = getCommanderUtilityPackage(colors)
+      utilityCards.forEach(c => { if (addUniqueCard(c.name)) nonLandCount++ })
+
+      // Filler cards to reach 62 non-lands
+      if (nonLandCount < TARGET_NONLANDS) {
+        const fillerCards = getCommanderFillerCards(colors, archetype, TARGET_NONLANDS - nonLandCount)
+        fillerCards.forEach(c => { if (addUniqueCard(c.name)) nonLandCount++ })
       }
-      deck.push(...getArchetypeCards(archetype, 1))
-      deck.push(...getCommanderLands(colors))
+
+      // Massive colorless card pool for emergency filling
+      const colorlessCards = [
+        // Mana rocks
+        'Solemn Simulacrum', 'Burnished Hart', 'Darksteel Ingot', 'Worn Powerstone',
+        'Thran Dynamo', 'Gilded Lotus', 'Hedron Archive', 'Everflowing Chalice',
+        'Prismatic Lens', 'Guardian Idol', 'Coldsteel Heart', 'Star Compass',
+        'Prophetic Prism', 'Skullclamp', 'Wayfarer\'s Bauble', 'Palladium Myr',
+        'Sisay\'s Ring', 'Ur-Golem\'s Eye', 'Basalt Monolith', 'Grim Monolith',
+        'Mana Vault', 'Coalition Relic', 'Chromatic Lantern', 'Armillary Sphere',
+        // Creatures
+        'Meteor Golem', 'Duplicant', 'Steel Hellkite', 'Wurmcoil Engine',
+        'Myr Battlesphere', 'Platinum Angel', 'Platinum Emperion', 'Blightsteel Colossus',
+        'Kozilek, the Great Distortion', 'Ulamog, the Ceaseless Hunger', 'Artisan of Kozilek',
+        'It That Betrays', 'Void Winnower', 'Walking Ballista', 'Hangarback Walker',
+        'Stonecoil Serpent', 'Endless One', 'Metalwork Colossus', 'Traxos, Scourge of Kroog',
+        'Karn, Silver Golem', 'Lodestone Golem', 'Precursor Golem', 'Phyrexian Triniform',
+        'Sandstone Oracle', 'Soul of New Phyrexia', 'Sundering Titan', 'Colossus of Akros',
+        // Planeswalkers
+        'Karn, Scion of Urza', 'Ugin, the Ineffable', 'Ugin, the Spirit Dragon',
+        'Karn Liberated', 'Karn, the Great Creator',
+        // Removal/Utility
+        'All Is Dust', 'Oblivion Stone', 'Nevinyrral\'s Disk', 'Perilous Vault',
+        'Spine of Ish Sah', 'Scour from Existence', 'Introduction to Annihilation',
+        'Relic of Progenitus', 'Tormod\'s Crypt', 'Soul-Guide Lantern', 'Grafdigger\'s Cage',
+        'Pithing Needle', 'Sorcerous Spyglass', 'Ensnaring Bridge', 'Crawlspace',
+        // Equipment
+        'Sword of the Animist', 'Mask of Memory', 'Trailblazer\'s Boots', 'Whispersilk Cloak',
+        'Champion\'s Helm', 'Darksteel Plate', 'Assault Suit', 'Loxodon Warhammer',
+        'Sword of Feast and Famine', 'Sword of Fire and Ice', 'Batterskull', 'Umezawa\'s Jitte'
+      ]
+
+      // Color-specific deep pool
+      const colorDeepPool: Record<string, string[]> = {
+        W: [
+          'Swords to Plowshares', 'Path to Exile', 'Generous Gift', 'Wrath of God',
+          'Day of Judgment', 'Austere Command', 'Sun Titan', 'Elesh Norn, Grand Cenobite',
+          'Avacyn, Angel of Hope', 'Iona, Shield of Emeria', 'Karmic Guide', 'Reveillark',
+          'Mother of Runes', 'Grand Abolisher', 'Stoneforge Mystic', 'Recruiter of the Guard',
+          'Thalia, Guardian of Thraben', 'Smothering Tithe', 'Land Tax', 'Mentor of the Meek',
+          'Knight of the White Orchid', 'Weathered Wayfarer', 'Emeria Shepherd', 'Sun Titan',
+          'Restoration Angel', 'Flickerwisp', 'Blade Splicer', 'Luminarch Ascension'
+        ],
+        U: [
+          'Counterspell', 'Ponder', 'Brainstorm', 'Rhystic Study', 'Mystic Remora',
+          'Cyclonic Rift', 'Swan Song', 'Reality Shift', 'Propaganda', 'Windfall',
+          'Blue Sun\'s Zenith', 'Mulldrifter', 'Consecrated Sphinx', 'Jin-Gitaxias, Core Augur',
+          'Snapcaster Mage', 'Trinket Mage', 'Trophy Mage', 'Tribute Mage', 'Spellseeker',
+          'Mystical Tutor', 'Fact or Fiction', 'Dig Through Time', 'Treasure Cruise',
+          'Pongify', 'Rapid Hybridization', 'Arcane Denial', 'Negate', 'Delay'
+        ],
+        B: [
+          'Fatal Push', 'Thoughtseize', 'Dark Ritual', 'Toxic Deluge', 'Damnation',
+          'Grave Titan', 'Sheoldred, Whispering One', 'Animate Dead', 'Living Death',
+          'Gray Merchant of Asphodel', 'Crypt Ghast', 'Phyrexian Arena', 'Read the Bones',
+          'Demonic Tutor', 'Vampiric Tutor', 'Imperial Seal', 'Diabolic Intent',
+          'Reanimate', 'Entomb', 'Buried Alive', 'Victimize', 'Dread Return',
+          'Zulaport Cutthroat', 'Blood Artist', 'Dictate of Erebos', 'Grave Pact',
+          'Yawgmoth\'s Will', 'Necropotence', 'Bolas\'s Citadel', 'K\'rrik, Son of Yawgmoth'
+        ],
+        R: [
+          'Lightning Bolt', 'Monastery Swiftspear', 'Goblin Guide', 'Eidolon of the Great Revel',
+          'Etali, Primal Storm', 'Inferno Titan', 'Blasphemous Act', 'Vandalblast',
+          'Chaos Warp', 'Zealous Conscripts', 'Kiki-Jiki, Mirror Breaker', 'Dualcaster Mage',
+          'Faithless Looting', 'Cathartic Reunion', 'Wheel of Fortune', 'Reforge the Soul',
+          'Gamble', 'Imperial Recruiter', 'Goblin Welder', 'Goblin Engineer',
+          'Hellkite Tyrant', 'Terror of the Peaks', 'Drakuseth, Maw of Flames',
+          'Purphoros, God of the Forge', 'Impact Tremors', 'Goblin Bombardment'
+        ],
+        G: [
+          'Llanowar Elves', 'Birds of Paradise', 'Cultivate', 'Kodama\'s Reach',
+          'Avenger of Zendikar', 'Craterhoof Behemoth', 'Beast Within', 'Nature\'s Claim',
+          'Heroic Intervention', 'Wood Elves', 'Farhaven Elf', 'Sakura-Tribe Elder',
+          'Oracle of Mul Daya', 'Tireless Tracker', 'Eternal Witness', 'Reclamation Sage',
+          'Selvala, Heart of the Wilds', 'Selvala, Explorer Returned', 'Priest of Titania',
+          'Worldly Tutor', 'Green Sun\'s Zenith', 'Natural Order', 'Finale of Devastation',
+          'Tooth and Nail', 'Genesis Wave', 'Boundless Realms', 'Rampant Growth'
+        ]
+      }
+
+      // Add color-specific cards first
+      colors.forEach(color => {
+        if (colorDeepPool[color]) {
+          colorDeepPool[color].forEach(card => {
+            if (nonLandCount < TARGET_NONLANDS && addUniqueCard(card)) nonLandCount++
+          })
+        }
+      })
+
+      // Then colorless cards
+      let colorlessIndex = 0
+      while (nonLandCount < TARGET_NONLANDS && colorlessIndex < colorlessCards.length) {
+        if (addUniqueCard(colorlessCards[colorlessIndex])) nonLandCount++
+        colorlessIndex++
+      }
+
+      // === LANDS (exactly 37) ===
+      let landCount = 0
+
+      // Command Tower first (essential)
+      if (addUniqueCard('Command Tower')) landCount++
+
+      // Utility lands
+      const utilityLands = [
+        'Reliquary Tower', 'Exotic Orchard', 'Myriad Landscape', 'Temple of the False God',
+        'Rogue\'s Passage', 'Arch of Orazca', 'War Room', 'Castle Ardenvale',
+        'Inventors\' Fair', 'Buried Ruin', 'High Market', 'Phyrexian Tower'
+      ]
+      utilityLands.forEach(land => { if (landCount < LAND_COUNT && addUniqueCard(land)) landCount++ })
+
+      // Dual lands for multi-color
+      if (colors.length >= 2 && landCount < LAND_COUNT) {
+        for (let i = 0; i < colors.length - 1 && landCount < LAND_COUNT; i++) {
+          const duals = getDualLandName(colors[i], colors[i + 1])
+          duals.forEach(dual => { if (landCount < LAND_COUNT && addUniqueCard(dual)) landCount++ })
+        }
+      }
+
+      // Basic lands to fill remaining
+      const basicLandMap: Record<string, string> = { W: 'Plains', U: 'Island', B: 'Swamp', R: 'Mountain', G: 'Forest' }
+      const colorsToUse = colors.length > 0 ? colors : ['R']
+      const remainingLands = LAND_COUNT - landCount
+
+      if (remainingLands > 0) {
+        const perColor = Math.floor(remainingLands / colorsToUse.length)
+        const extra = remainingLands % colorsToUse.length
+
+        colorsToUse.forEach((color, index) => {
+          const count = perColor + (index < extra ? 1 : 0)
+          if (count > 0) {
+            deck.push({ quantity: count, name: basicLandMap[color] || 'Wastes' })
+          }
+        })
+      }
     } else {
-      // 60-card formats
+      // 60-card formats - exactly 60 cards
+      const TARGET_CARDS = 60
+      const LAND_COUNT = rules.recommendedLands
+      const TARGET_NONLANDS = TARGET_CARDS - LAND_COUNT
+
+      // Archetype cards
       deck.push(...getArchetypeCards(archetype, rules.maxCopies))
+
+      // Color staples
       deck.push(...getColorStaples(primaryColor, rules.maxCopies))
-      if (secondaryColor) {
-        deck.push(...getColorStaples(secondaryColor, rules.maxCopies))
+      if (secondaryColor) deck.push(...getColorStaples(secondaryColor, rules.maxCopies))
+
+      // Calculate current non-land count
+      let currentNonLands = deck.reduce((sum, c) => sum + c.quantity, 0)
+
+      // Trim if over
+      while (currentNonLands > TARGET_NONLANDS && deck.length > 0) {
+        const lastCard = deck[deck.length - 1]
+        const excess = currentNonLands - TARGET_NONLANDS
+        if (lastCard.quantity <= excess) {
+          currentNonLands -= lastCard.quantity
+          deck.pop()
+        } else {
+          lastCard.quantity -= excess
+          currentNonLands = TARGET_NONLANDS
+        }
       }
-      deck.push(...getFormatLands(colors, rules.recommendedLands))
+
+      // Add fillers if under
+      if (currentNonLands < TARGET_NONLANDS) {
+        const needed = TARGET_NONLANDS - currentNonLands
+        deck.push(...get60CardFillers(colors, archetype, needed, rules.maxCopies))
+      }
+
+      // Add lands
+      deck.push(...getFormatLands(colors, LAND_COUNT))
     }
 
     return deck
   }
 
-  function getCommanderForColors(colors: string[], archetype: DeckArchetype): string {
+  // Utility cards for commander (no duplicates with staples)
+  function getCommanderUtilityPackage(colors: string[]): Array<{ quantity: number; name: string }> {
+    const utilities: Array<{ quantity: number; name: string }> = [
+      { quantity: 1, name: 'Wayfarer\'s Bauble' },
+      { quantity: 1, name: 'Skullclamp' },
+      { quantity: 1, name: 'Solemn Simulacrum' },
+    ]
+
+    if (colors.includes('U')) {
+      utilities.push(
+        { quantity: 1, name: 'Rhystic Study' },
+        { quantity: 1, name: 'Mystic Remora' },
+        { quantity: 1, name: 'Preordain' }
+      )
+    }
+    if (colors.includes('G')) {
+      utilities.push(
+        { quantity: 1, name: 'Harmonize' },
+        { quantity: 1, name: 'Rampant Growth' },
+        { quantity: 1, name: 'Farseek' }
+      )
+    }
+    if (colors.includes('B')) {
+      utilities.push(
+        { quantity: 1, name: 'Phyrexian Arena' },
+        { quantity: 1, name: 'Sign in Blood' },
+        { quantity: 1, name: 'Night\'s Whisper' }
+      )
+    }
+    if (colors.includes('W')) {
+      utilities.push(
+        { quantity: 1, name: 'Smothering Tithe' },
+        { quantity: 1, name: 'Esper Sentinel' },
+        { quantity: 1, name: 'Teferi\'s Protection' }
+      )
+    }
+    if (colors.includes('R')) {
+      utilities.push(
+        { quantity: 1, name: 'Jeska\'s Will' },
+        { quantity: 1, name: 'Wheel of Misfortune' },
+        { quantity: 1, name: 'Thrill of Possibility' }
+      )
+    }
+    return utilities
+  }
+
+  // Filler cards for commander singleton
+  function getCommanderFillerCards(colors: string[], archetype: DeckArchetype, count: number): Array<{ quantity: number; name: string }> {
+    const fillers: string[] = [
+      // Universal staples
+      'Solemn Simulacrum', 'Burnished Hart', 'Skullclamp', 'Darksteel Ingot',
+      'Worn Powerstone', 'Thran Dynamo', 'Gilded Lotus', 'Hedron Archive',
+    ]
+
+    // Color creatures
+    const colorCards: Record<string, string[]> = {
+      W: ['Sun Titan', 'Elesh Norn, Grand Cenobite', 'Wrath of God', 'Day of Judgment', 'Austere Command', 'Knight of the White Orchid', 'Stoneforge Mystic', 'Mother of Runes'],
+      U: ['Mulldrifter', 'Consecrated Sphinx', 'Cyclonic Rift', 'Swan Song', 'Reality Shift', 'Propaganda', 'Windfall', 'Blue Sun\'s Zenith'],
+      B: ['Grave Titan', 'Sheoldred, Whispering One', 'Toxic Deluge', 'Damnation', 'Animate Dead', 'Living Death', 'Gray Merchant of Asphodel', 'Crypt Ghast'],
+      R: ['Etali, Primal Storm', 'Inferno Titan', 'Blasphemous Act', 'Vandalblast', 'Goblin Bombardment', 'Impact Tremors', 'Chaos Warp', 'Zealous Conscripts'],
+      G: ['Avenger of Zendikar', 'Craterhoof Behemoth', 'Beast Within', 'Nature\'s Claim', 'Heroic Intervention', 'Wood Elves', 'Farhaven Elf', 'Sakura-Tribe Elder'],
+    }
+
+    colors.forEach(c => { if (colorCards[c]) fillers.push(...colorCards[c]) })
+
+    // Archetype cards
+    const archetypeCards: Record<string, string[]> = {
+      Aggro: ['Ogre Battledriver', 'Hellrider', 'Shared Animosity', 'Fervor'],
+      Control: ['Propaganda', 'Ghostly Prison', 'Sphere of Safety', 'Maze of Ith'],
+      Tribal: ['Herald\'s Horn', 'Vanquisher\'s Banner', 'Coat of Arms', 'Door of Destinies'],
+      Tokens: ['Anointed Procession', 'Parallel Lives', 'Divine Visitation', 'Beastmaster Ascension'],
+      Aristocrats: ['Zulaport Cutthroat', 'Blood Artist', 'Pitiless Plunderer', 'Dictate of Erebos'],
+      Ramp: ['Boundless Realms', 'Skyshroud Claim', 'Explosive Vegetation', 'Migration Path'],
+    }
+    if (archetypeCards[archetype]) fillers.push(...archetypeCards[archetype])
+
+    const unique = [...new Set(fillers)].slice(0, count)
+    return unique.map(name => ({ quantity: 1, name }))
+  }
+
+  // Fillers for 60-card formats
+  function get60CardFillers(colors: string[], archetype: DeckArchetype, count: number, maxCopies: number): Array<{ quantity: number; name: string }> {
+    const result: Array<{ quantity: number; name: string }> = []
+    let remaining = count
+    const primary = colors[0] || 'R'
+
+    const fillerPool: Array<{ name: string; copies: number }> = []
+
+    // Archetype fillers
+    const archetypeFillers: Record<string, Array<{ name: string; copies: number }>> = {
+      Aggro: [{ name: 'Bomat Courier', copies: 4 }, { name: 'Soul-Scar Mage', copies: 4 }],
+      Burn: [{ name: 'Skullcrack', copies: 4 }, { name: 'Light Up the Stage', copies: 4 }],
+      Control: [{ name: 'Absorb', copies: 3 }, { name: 'Supreme Verdict', copies: 2 }],
+      Midrange: [{ name: 'Scavenging Ooze', copies: 3 }, { name: 'Tireless Tracker', copies: 2 }],
+      Tempo: [{ name: 'Snapcaster Mage', copies: 4 }],
+    }
+    if (archetypeFillers[archetype]) fillerPool.push(...archetypeFillers[archetype])
+
+    // Color fillers
+    const colorFillers: Record<string, Array<{ name: string; copies: number }>> = {
+      W: [{ name: 'Thalia, Guardian of Thraben', copies: 3 }, { name: 'Leonin Arbiter', copies: 2 }],
+      U: [{ name: 'Opt', copies: 4 }, { name: 'Consider', copies: 4 }],
+      B: [{ name: 'Inquisition of Kozilek', copies: 4 }, { name: 'Dread Wanderer', copies: 4 }],
+      R: [{ name: 'Searing Blaze', copies: 4 }, { name: 'Flame Rift', copies: 2 }],
+      G: [{ name: 'Experiment One', copies: 4 }, { name: 'Pelt Collector', copies: 4 }],
+    }
+    if (colorFillers[primary]) fillerPool.push(...colorFillers[primary])
+
+    for (const filler of fillerPool) {
+      if (remaining <= 0) break
+      const qty = Math.min(filler.copies, maxCopies, remaining)
+      result.push({ quantity: qty, name: filler.name })
+      remaining -= qty
+    }
+
+    // If still short, add generic creatures
+    while (remaining >= 4) {
+      result.push({ quantity: 4, name: 'Raging Goblin' })
+      remaining -= 4
+    }
+    if (remaining > 0) {
+      result.push({ quantity: remaining, name: 'Raging Goblin' })
+    }
+
+    return result
+  }
+
+  function getCommanderForColors(colors: string[], _archetype: DeckArchetype): string {
     // Popular commanders organized by color identity
     const commanders: Record<string, string[]> = {
       // Mono-color
@@ -560,10 +1008,9 @@ export default function DeckBuilder() {
     return duals[key1] || duals[key2] || []
   }
 
-  function getCommanderLands(colors: string[]): Array<{ quantity: number; name: string }> {
-    const lands: Array<{ quantity: number; name: string }> = [
-      { quantity: 1, name: 'Command Tower' },
-    ]
+  function getCommanderLands(colors: string[], targetCount: number): Array<{ quantity: number; name: string }> {
+    const lands: Array<{ quantity: number; name: string }> = []
+    let remaining = targetCount
 
     const basicLands: Record<string, string> = {
       W: 'Plains',
@@ -573,21 +1020,64 @@ export default function DeckBuilder() {
       G: 'Forest',
     }
 
-    // Add basic lands
-    const basicsPerColor = Math.floor(30 / Math.max(colors.length, 1))
-    colors.forEach((color) => {
-      lands.push({ quantity: basicsPerColor, name: basicLands[color] || 'Wastes' })
+    // Utility lands (5-7 cards)
+    const utilityLands = [
+      'Command Tower',
+      'Reliquary Tower',
+      'Exotic Orchard',
+      'Myriad Landscape',
+      'Temple of the False God',
+    ]
+    utilityLands.forEach(land => {
+      if (remaining > 0) {
+        lands.push({ quantity: 1, name: land })
+        remaining--
+      }
     })
 
-    // Add some utility lands
-    lands.push({ quantity: 1, name: 'Reliquary Tower' })
-    lands.push({ quantity: 1, name: 'Exotic Orchard' })
+    // Add dual lands for multi-color (if 2+ colors)
+    if (colors.length >= 2 && remaining > 0) {
+      const dualCount = Math.min(6, remaining)
+      const dualsPerPair = Math.ceil(dualCount / Math.max(colors.length - 1, 1))
+      for (let i = 0; i < colors.length - 1 && remaining > 0; i++) {
+        const duals = getDualLandName(colors[i], colors[i + 1])
+        duals.forEach(dual => {
+          if (remaining > 0) {
+            lands.push({ quantity: 1, name: dual })
+            remaining--
+          }
+        })
+      }
+    }
+
+    // Fill rest with basics, distributed among colors
+    if (remaining > 0) {
+      const colorsToUse = colors.length > 0 ? colors : ['R']
+      const perColor = Math.floor(remaining / colorsToUse.length)
+      const extra = remaining % colorsToUse.length
+
+      colorsToUse.forEach((color, index) => {
+        const count = perColor + (index < extra ? 1 : 0)
+        if (count > 0) {
+          lands.push({ quantity: count, name: basicLands[color] || 'Wastes' })
+        }
+      })
+    }
 
     return lands
   }
 
   return (
     <div className="deck-builder">
+      {/* Hidden file input for deck loading */}
+      <input
+        type="file"
+        ref={fileInputRef}
+        onChange={handleFileLoad}
+        accept=".txt,.dec,.dek"
+        style={{ display: 'none' }}
+      />
+
       {/* Top Bar */}
       <div className="top-bar">
         <div className="left-controls">
@@ -621,6 +1111,14 @@ export default function DeckBuilder() {
           </button>
 
           <button
+            className="btn btn-scan"
+            onClick={() => setShowScanner(true)}
+            title="Scan cards with camera"
+          >
+            📷 Scan Cards
+          </button>
+
+          <button
             className="btn btn-danger"
             onClick={handleClear}
             title="Clear deck"
@@ -643,11 +1141,20 @@ export default function DeckBuilder() {
           >
             {isSaving ? '💾 Saving...' : '💾 Save'}
           </button>
-          <Link to="/analysis" className="btn btn-analyze">
+          <button className="btn btn-analyze" onClick={handleAnalyze}>
             📊 Analyze
-          </Link>
+          </button>
         </div>
       </div>
+
+      {/* Validation Error Toast */}
+      {validationError && (
+        <div className="validation-error-toast">
+          <span className="error-icon">⚠️</span>
+          <span>{validationError}</span>
+          <button className="dismiss-btn" onClick={() => setValidationError(null)}>×</button>
+        </div>
+      )}
 
       {/* Main 3-Column Layout */}
       <div className="builder-layout">
@@ -809,6 +1316,16 @@ export default function DeckBuilder() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Camera Scanner Modal */}
+      {showScanner && (
+        <CameraScanner
+          isOpen={showScanner}
+          onClose={() => setShowScanner(false)}
+          onCardsScanned={handleScannedCards}
+          selectedFormat={selectedFormat}
+        />
       )}
     </div>
   )

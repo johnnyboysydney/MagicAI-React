@@ -1,0 +1,393 @@
+.dashboard-page {
+  min-height: calc(100vh - 120px);
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 0 1rem;
+}
+
+/* Header */
+.dashboard-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1.5rem 0;
+  margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.welcome-section h1 {
+  margin: 0;
+  font-size: 1.75rem;
+  color: var(--text);
+}
+
+.welcome-subtitle {
+  margin: 0.25rem 0 0 0;
+  color: var(--text-muted);
+}
+
+.credits-display {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+}
+
+.credits-icon {
+  font-size: 1.5rem;
+}
+
+.credits-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.credits-count {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--text);
+  line-height: 1;
+}
+
+.credits-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+.upgrade-link {
+  margin-left: 0.5rem;
+  padding: 0.35rem 0.75rem;
+  background: linear-gradient(135deg, #fbbf24 0%, #f59e0b 100%);
+  color: #1f2937;
+  border-radius: 6px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: transform 0.2s;
+}
+
+.upgrade-link:hover {
+  transform: scale(1.05);
+}
+
+/* Quick Actions */
+.quick-actions-section {
+  margin-bottom: 2rem;
+}
+
+.quick-actions-section h2 {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  color: var(--text);
+}
+
+.quick-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 1rem;
+}
+
+.quick-action-card {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.quick-action-card:hover {
+  border-color: var(--accent-color, var(--primary));
+  transform: translateY(-2px);
+}
+
+.action-icon {
+  font-size: 1.75rem;
+}
+
+.action-text {
+  display: flex;
+  flex-direction: column;
+}
+
+.action-title {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.action-subtitle {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Dashboard Grid */
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 1.5rem;
+}
+
+/* Cards */
+.dashboard-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 1.25rem;
+}
+
+.card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.dashboard-card h3 {
+  margin: 0;
+  font-size: 1rem;
+  color: var(--text);
+}
+
+.view-all-link {
+  color: var(--primary);
+  font-size: 0.85rem;
+  text-decoration: none;
+}
+
+.view-all-link:hover {
+  text-decoration: underline;
+}
+
+/* Recent Decks */
+.recent-decks-card {
+  grid-row: span 2;
+}
+
+.decks-list {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.deck-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.875rem 1rem;
+  background: var(--bg-dark);
+  border-radius: 8px;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.deck-item:hover {
+  background: var(--border);
+}
+
+.deck-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+
+.deck-name {
+  font-weight: 500;
+  color: var(--text);
+}
+
+.deck-meta {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.deck-date {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Empty State */
+.empty-state {
+  text-align: center;
+  padding: 2rem;
+}
+
+.empty-icon {
+  font-size: 2.5rem;
+  display: block;
+  margin-bottom: 0.75rem;
+  opacity: 0.5;
+}
+
+.empty-state p {
+  color: var(--text-muted);
+  margin: 0 0 1rem 0;
+}
+
+.btn-sm {
+  padding: 0.5rem 1rem;
+  font-size: 0.85rem;
+}
+
+/* Stats Card */
+.stats-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.stat-item {
+  text-align: center;
+  padding: 1rem;
+  background: var(--bg-dark);
+  border-radius: 8px;
+}
+
+.stat-value {
+  display: block;
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--primary);
+  margin-bottom: 0.25rem;
+}
+
+.stat-label {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Tip Card */
+.tip-category {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  background: var(--bg-dark);
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+}
+
+.tip-content {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 1rem;
+  background: var(--bg-dark);
+  border-radius: 8px;
+}
+
+.tip-icon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.tip-content p {
+  margin: 0;
+  color: var(--text);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* Subscription Card */
+.subscription-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.sub-badge {
+  padding: 0.35rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.sub-badge.free {
+  background: var(--bg-dark);
+  color: var(--text-muted);
+}
+
+.sub-badge.pro {
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: white;
+}
+
+.upgrade-btn {
+  padding: 0.5rem 1rem;
+  background: var(--primary);
+  color: white;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.upgrade-btn:hover {
+  background: var(--primary-hover);
+}
+
+.subscription-features {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+.feature-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text);
+}
+
+.feature-icon {
+  font-size: 1rem;
+}
+
+.upgrade-prompt {
+  margin: 0;
+  padding: 1rem;
+  background: rgba(99, 102, 241, 0.1);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .dashboard-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .recent-decks-card {
+    grid-row: auto;
+  }
+
+  .quick-actions-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 640px) {
+  .dashboard-header {
+    flex-direction: column;
+    gap: 1rem;
+    align-items: flex-start;
+  }
+
+  .quick-actions-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .stats-grid {
+    grid-template-columns: 1fr;
+  }
+}

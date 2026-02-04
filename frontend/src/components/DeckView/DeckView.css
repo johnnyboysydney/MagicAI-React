@@ -157,6 +157,94 @@
   color: white;
 }
 
+/* Commander preview wrapper and popup */
+.commander-preview-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.commander-image {
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.commander-image:hover {
+  transform: scale(1.05);
+}
+
+.commander-preview-popup {
+  position: absolute;
+  left: 50px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 100;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s, visibility 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: var(--bg-card);
+  border: 1px solid #a855f7;
+  border-radius: 10px;
+  padding: 0.75rem;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+}
+
+/* Invisible bridge to connect thumbnail to popup */
+.commander-preview-popup::before {
+  content: '';
+  position: absolute;
+  left: -15px;
+  top: 0;
+  bottom: 0;
+  width: 20px;
+}
+
+.commander-preview-wrapper:hover .commander-preview-popup,
+.commander-preview-popup:hover {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.commander-preview-popup .preview-image {
+  width: 280px;
+  height: auto;
+  border-radius: 8px;
+}
+
+.commander-preview-popup .preview-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  background: var(--bg-dark);
+  border-radius: 6px;
+  margin-top: 0.25rem;
+}
+
+.commander-preview-popup .preview-price {
+  font-weight: 700;
+  color: #22c55e;
+  font-size: 1rem;
+}
+
+.commander-preview-popup .preview-link {
+  color: #a855f7;
+  font-size: 0.85rem;
+  text-decoration: none;
+  padding: 0.35rem 0.75rem;
+  background: rgba(168, 85, 247, 0.1);
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.commander-preview-popup .preview-link:hover {
+  background: #a855f7;
+  color: white;
+}
+
 .empty-deck {
   display: flex;
   flex-direction: column;
@@ -218,9 +306,10 @@
 .deck-card {
   display: flex;
   align-items: center;
-  padding: 0.5rem 0.75rem;
+  padding: 0.4rem 0.5rem;
   border-bottom: 1px solid var(--border);
   transition: background 0.2s;
+  gap: 0.5rem;
 }
 
 .deck-card:last-child {
@@ -231,17 +320,112 @@
   background: var(--bg-dark);
 }
 
-.deck-card .quantity {
+.deck-card .card-preview-wrapper {
+  position: relative;
+  flex-shrink: 0;
+}
+
+.deck-card .card-thumbnail {
   width: 30px;
+  height: 42px;
+  border-radius: 3px;
+  object-fit: cover;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.deck-card .card-thumbnail:hover {
+  transform: scale(1.1);
+}
+
+.deck-card .card-preview-popup {
+  position: absolute;
+  left: 35px;
+  top: 50%;
+  transform: translateY(-50%);
+  z-index: 100;
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.15s, visibility 0.15s;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--primary);
+  border-radius: 10px;
+  padding: 0.75rem;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+}
+
+/* Invisible bridge to connect thumbnail to popup */
+.deck-card .card-preview-popup::before {
+  content: '';
+  position: absolute;
+  left: -15px;
+  top: 0;
+  bottom: 0;
+  width: 20px;
+}
+
+.deck-card .card-preview-wrapper:hover .card-preview-popup,
+.deck-card .card-preview-popup:hover {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+}
+
+.deck-card .preview-image {
+  width: 280px;
+  height: auto;
+  border-radius: 8px;
+}
+
+.deck-card .preview-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  background: var(--bg-dark);
+  border-radius: 6px;
+  margin-top: 0.25rem;
+}
+
+.deck-card .preview-price {
+  font-weight: 700;
+  color: #22c55e;
+  font-size: 1rem;
+}
+
+.deck-card .preview-link {
+  color: var(--primary);
+  font-size: 0.85rem;
+  text-decoration: none;
+  padding: 0.35rem 0.75rem;
+  background: rgba(99, 102, 241, 0.1);
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.deck-card .preview-link:hover {
+  background: var(--primary);
+  color: white;
+}
+
+.deck-card .quantity {
+  width: 24px;
   color: var(--primary);
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  flex-shrink: 0;
 }
 
 .deck-card .name {
   flex: 1;
   color: var(--text);
-  font-size: 0.9rem;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 .deck-card .mana-cost {
@@ -302,4 +486,57 @@
   border-top: 1px solid var(--border);
   text-align: center;
   color: var(--text-muted);
+}
+
+/* Fixed position card preview - renders above all columns */
+.deck-card-preview-fixed {
+  position: fixed;
+  transform: translateY(-50%);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--primary);
+  border-radius: 10px;
+  padding: 0.75rem;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+}
+
+.deck-card-preview-fixed .preview-image {
+  width: 280px;
+  height: auto;
+  border-radius: 8px;
+}
+
+.deck-card-preview-fixed .preview-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  background: var(--bg-dark);
+  border-radius: 6px;
+  margin-top: 0.25rem;
+}
+
+.deck-card-preview-fixed .preview-price {
+  font-weight: 700;
+  color: #22c55e;
+  font-size: 1rem;
+}
+
+.deck-card-preview-fixed .preview-link {
+  color: var(--primary);
+  font-size: 0.85rem;
+  text-decoration: none;
+  padding: 0.35rem 0.75rem;
+  background: rgba(99, 102, 241, 0.1);
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.deck-card-preview-fixed .preview-link:hover {
+  background: var(--primary);
+  color: white;
 }

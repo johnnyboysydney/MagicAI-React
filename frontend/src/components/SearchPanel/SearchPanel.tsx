@@ -1,8 +1,13 @@
-import { useState } from 'react'
+import { useState, useRef, useCallback } from 'react'
 import { useCardSearch, type SearchFilters } from '../../hooks/useScryfall'
 import { getCardImageUrl } from '../../types/card'
 import type { ScryfallCard } from '../../types/card'
 import './SearchPanel.css'
+
+interface HoveredCard {
+  card: ScryfallCard
+  position: { top: number; left: number }
+}
 
 interface SearchPanelProps {
   selectedFormat: string
@@ -70,6 +75,46 @@ export default function SearchPanel({
   }
 
   const hasActiveFilters = typeFilter || rarityFilter || isLegendary || colorFilters.length > 0
+
+  // Hover preview state - tracks which card is hovered and where to show popup
+  const [hoveredCard, setHoveredCard] = useState<HoveredCard | null>(null)
+  const hideTimeoutRef = useRef<NodeJS.Timeout | null>(null)
+
+  const handleCardMouseEnter = useCallback((card: ScryfallCard, e: React.MouseEvent<HTMLImageElement>) => {
+    // Clear any pending hide timeout
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current)
+      hideTimeoutRef.current = null
+    }
+
+    const rect = e.currentTarget.getBoundingClientRect()
+    setHoveredCard({
+      card,
+      position: {
+        top: rect.top + rect.height / 2,
+        left: rect.right + 10,
+      },
+    })
+  }, [])
+
+  const handleCardMouseLeave = useCallback(() => {
+    // Delay hiding to allow moving to the popup
+    hideTimeoutRef.current = setTimeout(() => {
+      setHoveredCard(null)
+    }, 100)
+  }, [])
+
+  const handlePopupMouseEnter = useCallback(() => {
+    // Cancel hide when entering popup
+    if (hideTimeoutRef.current) {
+      clearTimeout(hideTimeoutRef.current)
+      hideTimeoutRef.current = null
+    }
+  }, [])
+
+  const handlePopupMouseLeave = useCallback(() => {
+    setHoveredCard(null)
+  }, [])
 
   // Handle drag start - store card data
   const handleDragStart = (e: React.DragEvent, card: ScryfallCard) => {
@@ -226,12 +271,14 @@ export default function SearchPanel({
               draggable
               onDragStart={(e) => handleDragStart(e, card)}
             >
-              <div className="card-image-container">
+              <div className="card-preview-wrapper">
                 <img
                   src={getCardImageUrl(card, 'small')}
                   alt={card.name}
                   className="card-image"
                   loading="lazy"
+                  onMouseEnter={(e) => handleCardMouseEnter(card, e)}
+                  onMouseLeave={handleCardMouseLeave}
                 />
               </div>
               <div className="card-info">
@@ -270,6 +317,39 @@ export default function SearchPanel({
       <div className="panel-footer">
         <small>💡 Drag cards to deck or click + to add</small>
       </div>
+
+      {/* Fixed position popup that renders outside the scrollable area */}
+      {hoveredCard && (
+        <div
+          className="card-preview-fixed"
+          style={{
+            top: hoveredCard.position.top,
+            left: hoveredCard.position.left,
+          }}
+          onMouseEnter={handlePopupMouseEnter}
+          onMouseLeave={handlePopupMouseLeave}
+        >
+          <img
+            src={getCardImageUrl(hoveredCard.card, 'normal')}
+            alt={hoveredCard.card.name}
+            className="preview-image"
+          />
+          <div className="preview-info">
+            <div className="preview-price">
+              ${hoveredCard.card.prices?.usd || '0.00'}
+            </div>
+            <a
+              href={`https://scryfall.com/search?q=!"${encodeURIComponent(hoveredCard.card.name)}"`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="preview-link"
+              onClick={(e) => e.stopPropagation()}
+            >
+              View on Scryfall
+            </a>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

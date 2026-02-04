@@ -284,11 +284,13 @@
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
-.card-image-container {
+/* Card Preview Wrapper and Popup */
+.card-preview-wrapper {
+  position: relative;
   width: 45px;
   height: 63px;
   border-radius: 4px;
-  overflow: hidden;
+  overflow: visible;
   flex-shrink: 0;
   background: var(--border);
 }
@@ -297,6 +299,66 @@
   width: 100%;
   height: 100%;
   object-fit: cover;
+  border-radius: 4px;
+  cursor: pointer;
+  transition: transform 0.2s;
+}
+
+.card-image:hover {
+  transform: scale(1.05);
+}
+
+/* Fixed position card preview - renders above all columns */
+.card-preview-fixed {
+  position: fixed;
+  transform: translateY(-50%);
+  z-index: 1000;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--primary);
+  border-radius: 10px;
+  padding: 0.75rem;
+  box-shadow: 0 12px 48px rgba(0, 0, 0, 0.5);
+  pointer-events: auto;
+}
+
+.card-preview-fixed .preview-image {
+  width: 280px;
+  height: auto;
+  border-radius: 8px;
+}
+
+.card-preview-fixed .preview-info {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem;
+  background: var(--bg-dark);
+  border-radius: 6px;
+  margin-top: 0.25rem;
+}
+
+.card-preview-fixed .preview-price {
+  font-weight: 700;
+  color: #22c55e;
+  font-size: 1rem;
+}
+
+.card-preview-fixed .preview-link {
+  color: var(--primary);
+  font-size: 0.85rem;
+  text-decoration: none;
+  padding: 0.35rem 0.75rem;
+  background: rgba(99, 102, 241, 0.1);
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.card-preview-fixed .preview-link:hover {
+  background: var(--primary);
+  color: white;
 }
 
 .card-info {

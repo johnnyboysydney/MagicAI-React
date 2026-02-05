@@ -48,6 +48,7 @@ export interface DeckCard {
   cardType: CardType
   cmc: number
   colors: string[]
+  manaCost: string
   price: number
 }
 
@@ -103,6 +104,7 @@ export function scryfallToDeckCard(card: ScryfallCard, quantity: number = 1): De
     cardType: getCardType(card),
     cmc: card.cmc || 0,
     colors: card.colors || [],
+    manaCost: card.mana_cost || '',
     price: getCardPrice(card),
   }
 }

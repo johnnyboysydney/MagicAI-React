@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import SearchPanel from '../../components/SearchPanel/SearchPanel'
 import DeckView from '../../components/DeckView/DeckView'
 import StatsPanel from '../../components/StatsPanel/StatsPanel'
@@ -10,8 +10,9 @@ import type { ScryfallCard, DeckCard } from '../../types/card'
 import {
   FORMAT_RULES,
   DECK_ARCHETYPES,
-  generateDeckPrompt,
   fetchCardByName,
+  generateDeckWithAI,
+  fetchDeckCards,
   type DeckArchetype,
   type DeckGenerationRequest,
 } from '../../services/deckGenerator'
@@ -30,7 +31,7 @@ const DECK_FORMATS = [
 
 export default function DeckBuilder() {
   const navigate = useNavigate()
-  const { setDeckForAnalysis, builderState, setBuilderState } = useDeck()
+  const { setDeckForAnalysis, builderState, setBuilderState, saveDeck } = useDeck()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Initialize from context (persisted state) or defaults
@@ -254,10 +255,28 @@ export default function DeckBuilder() {
     }
   }, [])
 
-  const handleSave = () => {
+  const handleSave = async () => {
+    if (deckCards.size === 0 && !commander) {
+      alert('Please add some cards to your deck first!')
+      return
+    }
+
     setIsSaving(true)
-    // TODO: Implement save to Firebase
-    setTimeout(() => setIsSaving(false), 1000)
+    try {
+      await saveDeck({
+        name: deckName,
+        format: selectedFormat,
+        cards: deckCards,
+        commander,
+        isPublic: false,
+      })
+      alert('Deck saved successfully!')
+    } catch (error) {
+      console.error('Error saving deck:', error)
+      alert(error instanceof Error ? error.message : 'Failed to save deck. Please try again.')
+    } finally {
+      setIsSaving(false)
+    }
   }
 
   const handleExport = () => {
@@ -370,7 +389,7 @@ export default function DeckBuilder() {
   const handleAIGenerate = async () => {
     setIsGenerating(true)
     setGenerationError(null)
-    setGenerationProgress('Preparing deck generation...')
+    setGenerationProgress('Preparing AI deck generation...')
 
     try {
       const request: DeckGenerationRequest = {
@@ -382,45 +401,39 @@ export default function DeckBuilder() {
         budget: selectedBudget,
       }
 
-      // Generate the prompt
-      const prompt = generateDeckPrompt(request)
-      console.log('AI Prompt:', prompt)
+      // Generate deck using Gemini AI
+      const parsedDeck = await generateDeckWithAI(request, setGenerationProgress)
 
-      setGenerationProgress('Generating deck list...')
+      // Fetch all cards from Scryfall
+      const { mainboard, commander: aiCommander, failedCards } = await fetchDeckCards(
+        parsedDeck,
+        setGenerationProgress
+      )
 
-      // For now, use a sample deck generation based on format/archetype
-      // In production, this would call Claude API or similar
-      const sampleDeck = generateSampleDeck(selectedFormat, selectedArchetype, selectedColors)
-
-      setGenerationProgress('Fetching card data from Scryfall...')
-
-      // Clear current deck if generating new
+      // Build the deck map
       const newDeckCards = new Map<string, DeckCard>()
-      let processedCount = 0
-      const totalCards = sampleDeck.length
 
-      for (const { quantity, name } of sampleDeck) {
-        setGenerationProgress(`Fetching card ${++processedCount}/${totalCards}: ${name}`)
-
-        const card = await fetchCardByName(name)
+      for (const { quantity, card } of mainboard) {
         if (card) {
-          // Check if this is the commander (quantity = -1 is our signal)
-          if (quantity === -1) {
-            const deckCard = scryfallToDeckCard(card, 1)
-            setCommander(deckCard)
-          } else {
-            newDeckCards.set(card.name, scryfallToDeckCard(card, quantity))
-          }
-        } else {
-          console.warn(`Could not find card: ${name}`)
+          newDeckCards.set(card.name, scryfallToDeckCard(card, quantity))
         }
+      }
 
-        // Small delay to avoid rate limiting Scryfall
-        await new Promise((resolve) => setTimeout(resolve, 100))
+      // Set commander if AI suggested one
+      if (aiCommander && isCommanderFormat) {
+        setCommander(scryfallToDeckCard(aiCommander, 1))
       }
 
       setDeckCards(newDeckCards)
-      setGenerationProgress('Deck generated successfully!')
+
+      // Show warning if some cards failed
+      if (failedCards.length > 0) {
+        console.warn('Failed to fetch cards:', failedCards)
+        setGenerationProgress(`Deck generated! (${failedCards.length} cards not found)`)
+      } else {
+        setGenerationProgress('Deck generated successfully!')
+      }
+
       setShowGenerateModal(false)
 
       // Auto-name the deck based on archetype and colors
@@ -435,8 +448,9 @@ export default function DeckBuilder() {
     }
   }
 
-  // Generate a sample deck based on format and archetype
-  function generateSampleDeck(
+  // Generate a sample deck based on format and archetype (fallback when AI unavailable)
+  // @ts-expect-error - kept as fallback, not currently used
+  function _generateSampleDeck(
     format: string,
     archetype: DeckArchetype,
     colors: string[]
@@ -671,8 +685,26 @@ export default function DeckBuilder() {
         deck.push(...get60CardFillers(colors, archetype, needed, rules.maxCopies))
       }
 
+      // Recalculate to ensure we have exactly TARGET_NONLANDS
+      currentNonLands = deck.reduce((sum, c) => sum + c.quantity, 0)
+
+      // Final adjustment if still short
+      if (currentNonLands < TARGET_NONLANDS) {
+        const stillNeeded = TARGET_NONLANDS - currentNonLands
+        deck.push({ quantity: stillNeeded, name: 'Lightning Bolt' })
+      }
+
       // Add lands
       deck.push(...getFormatLands(colors, LAND_COUNT))
+
+      // Verify total is exactly 60
+      const totalCards = deck.reduce((sum, c) => sum + c.quantity, 0)
+      if (totalCards < TARGET_CARDS) {
+        // Add more basics if short
+        const shortage = TARGET_CARDS - totalCards
+        const basicName = colors[0] ? { W: 'Plains', U: 'Island', B: 'Swamp', R: 'Mountain', G: 'Forest' }[colors[0]] : 'Mountain'
+        deck.push({ quantity: shortage, name: basicName || 'Mountain' })
+      }
     }
 
     return deck
@@ -849,18 +881,6 @@ export default function DeckBuilder() {
     return options[0]
   }
 
-  function getCommanderStaples(): Array<{ quantity: number; name: string }> {
-    return [
-      { quantity: 1, name: 'Sol Ring' },
-      { quantity: 1, name: 'Arcane Signet' },
-      { quantity: 1, name: 'Command Tower' },
-      { quantity: 1, name: 'Lightning Greaves' },
-      { quantity: 1, name: 'Swiftfoot Boots' },
-      { quantity: 1, name: 'Thought Vessel' },
-      { quantity: 1, name: 'Mind Stone' },
-    ]
-  }
-
   function getColorStaples(color: string, maxCopies: number): Array<{ quantity: number; name: string }> {
     const staples: Record<string, Array<{ quantity: number; name: string }>> = {
       W: [
@@ -970,21 +990,30 @@ export default function DeckBuilder() {
       return [{ quantity: count, name: basicLands[colors[0]] || 'Mountain' }]
     }
 
-    // Two-color mana base
+    // Two-color mana base - ensure exactly 'count' lands
     const lands: Array<{ quantity: number; name: string }> = []
-    const basicCount = Math.floor(count * 0.6)
-    const dualCount = count - basicCount
+    let remaining = count
 
-    lands.push({ quantity: Math.ceil(basicCount / 2), name: basicLands[colors[0]] || 'Mountain' })
-    lands.push({ quantity: Math.floor(basicCount / 2), name: basicLands[colors[1]] || 'Forest' })
-
-    // Add some dual lands based on colors
+    // Add dual lands first (up to 8 total, 4 each of 2 types)
     const dualLandNames = getDualLandName(colors[0], colors[1])
     if (dualLandNames.length > 0) {
-      const perLand = Math.ceil(dualCount / dualLandNames.length)
       dualLandNames.forEach((land) => {
-        lands.push({ quantity: Math.min(perLand, 4), name: land })
+        const qty = Math.min(4, remaining)
+        if (qty > 0) {
+          lands.push({ quantity: qty, name: land })
+          remaining -= qty
+        }
       })
+    }
+
+    // Fill rest with basics, split between colors
+    if (remaining > 0) {
+      const firstColorCount = Math.ceil(remaining / 2)
+      const secondColorCount = remaining - firstColorCount
+      lands.push({ quantity: firstColorCount, name: basicLands[colors[0]] || 'Mountain' })
+      if (secondColorCount > 0) {
+        lands.push({ quantity: secondColorCount, name: basicLands[colors[1]] || 'Forest' })
+      }
     }
 
     return lands
@@ -1006,65 +1035,6 @@ export default function DeckBuilder() {
     const key1 = color1 + color2
     const key2 = color2 + color1
     return duals[key1] || duals[key2] || []
-  }
-
-  function getCommanderLands(colors: string[], targetCount: number): Array<{ quantity: number; name: string }> {
-    const lands: Array<{ quantity: number; name: string }> = []
-    let remaining = targetCount
-
-    const basicLands: Record<string, string> = {
-      W: 'Plains',
-      U: 'Island',
-      B: 'Swamp',
-      R: 'Mountain',
-      G: 'Forest',
-    }
-
-    // Utility lands (5-7 cards)
-    const utilityLands = [
-      'Command Tower',
-      'Reliquary Tower',
-      'Exotic Orchard',
-      'Myriad Landscape',
-      'Temple of the False God',
-    ]
-    utilityLands.forEach(land => {
-      if (remaining > 0) {
-        lands.push({ quantity: 1, name: land })
-        remaining--
-      }
-    })
-
-    // Add dual lands for multi-color (if 2+ colors)
-    if (colors.length >= 2 && remaining > 0) {
-      const dualCount = Math.min(6, remaining)
-      const dualsPerPair = Math.ceil(dualCount / Math.max(colors.length - 1, 1))
-      for (let i = 0; i < colors.length - 1 && remaining > 0; i++) {
-        const duals = getDualLandName(colors[i], colors[i + 1])
-        duals.forEach(dual => {
-          if (remaining > 0) {
-            lands.push({ quantity: 1, name: dual })
-            remaining--
-          }
-        })
-      }
-    }
-
-    // Fill rest with basics, distributed among colors
-    if (remaining > 0) {
-      const colorsToUse = colors.length > 0 ? colors : ['R']
-      const perColor = Math.floor(remaining / colorsToUse.length)
-      const extra = remaining % colorsToUse.length
-
-      colorsToUse.forEach((color, index) => {
-        const count = perColor + (index < extra ? 1 : 0)
-        if (count > 0) {
-          lands.push({ quantity: count, name: basicLands[color] || 'Wastes' })
-        }
-      })
-    }
-
-    return lands
   }
 
   return (

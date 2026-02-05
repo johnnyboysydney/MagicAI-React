@@ -11,6 +11,7 @@ import Profile from './pages/Profile/Profile'
 import Account from './pages/Account/Account'
 import Login from './pages/Auth/Login'
 import Signup from './pages/Auth/Signup'
+import Admin from './pages/Admin/Admin'
 import './App.css'
 
 // Protected route wrapper
@@ -167,6 +168,16 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <Account />
+              </ProtectedRoute>
+            }
+          />
+
+          {/* Admin route - protected, admin check happens inside component */}
+          <Route
+            path="/admin"
+            element={
+              <ProtectedRoute>
+                <Admin />
               </ProtectedRoute>
             }
           />

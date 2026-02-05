@@ -318,7 +318,7 @@ export default function DeckAnalysis() {
       )
       setQuickVerdictResult(result)
       setFullAnalysisResult(null) // Clear full analysis if showing quick
-      useCredits(1) // Deduct credit
+      await useCredits(1) // Deduct credit
     } catch (error) {
       console.error('Quick verdict error:', error)
       setAnalysisError(error instanceof Error ? error.message : 'Failed to get AI analysis. Please try again.')
@@ -351,7 +351,7 @@ export default function DeckAnalysis() {
       )
       setFullAnalysisResult(result)
       setQuickVerdictResult(null) // Clear quick verdict if showing full
-      useCredits(3) // Deduct credits
+      await useCredits(3) // Deduct credits
     } catch (error) {
       console.error('Full analysis error:', error)
       setAnalysisError(error instanceof Error ? error.message : 'Failed to get AI analysis. Please try again.')

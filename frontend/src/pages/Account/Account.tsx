@@ -1,8 +1,15 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { useAuth } from '../../contexts/AuthContext'
+import { ProfileCustomization } from '../../components/ProfileCustomization'
+import {
+  type UserProfileCustomization,
+  DEFAULT_CUSTOMIZATION,
+  getTierCustomizationSummary,
+} from '../../config/profileCustomization'
 import './Account.css'
 
-type SubscriptionTier = 'free' | 'pro' | 'unlimited'
+type SubscriptionTier = 'free' | 'pro' | 'premium'
 
 interface Subscription {
   tier: SubscriptionTier
@@ -19,55 +26,93 @@ interface AccountSettings {
   twoFactorEnabled: boolean
 }
 
+// Credit costs per feature
+const CREDIT_COSTS = {
+  simpleAnalysis: 1,
+  fullAnalysis: 2,
+  deckGeneration: 5,
+}
+
+// Subscription plans with accurate pricing
 const SUBSCRIPTION_PLANS: Record<SubscriptionTier, {
   name: string
   price: string
-  credits: string
+  priceValue: number
+  credits: number
+  creditsLabel: string
+  perCredit: string
   features: string[]
+  lockedFeatures?: string[]
   popular?: boolean
 }> = {
   free: {
     name: 'Free',
     price: '$0',
-    credits: '10 credits/month',
+    priceValue: 0,
+    credits: 10,
+    creditsLabel: '10 credits (one-time)',
+    perCredit: '-',
     features: [
-      '10 AI analysis credits per month',
-      'Basic deck statistics',
-      'Card scanning (5/day)',
-      'Standard deck builder',
+      '10 AI credits to start',
+      'Simple card analysis',
+      'Up to 3 saved decks',
+      'Basic deck builder',
+      'Camera scanner',
+    ],
+    lockedFeatures: [
+      'Full AI analysis',
+      'AI deck generation',
+      'Export to MTGA/Moxfield',
+      'Public deck sharing',
     ],
   },
   pro: {
     name: 'Pro',
-    price: '$9.99/mo',
-    credits: '100 credits/month',
+    price: '$7.99/mo',
+    priceValue: 7.99,
+    credits: 120,
+    creditsLabel: '120 credits/month',
+    perCredit: '$0.067',
     features: [
-      '100 AI analysis credits per month',
-      'Advanced deck analytics',
-      'Unlimited card scanning',
-      'Priority support',
-      'Meta comparison tools',
+      '120 AI credits/month',
+      'Full AI analysis',
+      'AI deck generation',
+      'Up to 20 saved decks',
+      'Export to MTGA/Moxfield',
+      'Public deck sharing',
+      'Camera scanner',
     ],
     popular: true,
   },
-  unlimited: {
-    name: 'Unlimited',
-    price: '$19.99/mo',
-    credits: 'Unlimited',
+  premium: {
+    name: 'Premium',
+    price: '$14.99/mo',
+    priceValue: 14.99,
+    credits: 300,
+    creditsLabel: '300 credits/month',
+    perCredit: '$0.05',
     features: [
-      'Unlimited AI analysis',
+      '300 AI credits/month',
       'All Pro features',
-      'API access',
-      'Early access to new features',
-      'Custom AI models',
-      'Dedicated support',
+      'Unlimited saved decks',
+      'Priority support',
+      'Early access to features',
+      'Credit rollover (max 150)',
     ],
   },
 }
 
+// Top-up packages (intentionally more expensive than subscription)
+const TOPUP_PACKAGES = [
+  { credits: 15, price: '$1.99', priceValue: 1.99, perCredit: '$0.13', deckGens: 3 },
+  { credits: 40, price: '$3.99', priceValue: 3.99, perCredit: '$0.10', deckGens: 8 },
+  { credits: 80, price: '$6.99', priceValue: 6.99, perCredit: '$0.087', deckGens: 16 },
+]
+
 export default function Account() {
   const location = useLocation()
-  const [activeSection, setActiveSection] = useState<'settings' | 'subscription' | 'billing'>('settings')
+  const { user, updateProfileCustomization } = useAuth()
+  const [activeSection, setActiveSection] = useState<'settings' | 'profile' | 'subscription' | 'billing'>('settings')
   const [isSaving, setIsSaving] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
@@ -77,20 +122,40 @@ export default function Account() {
       setActiveSection('subscription')
     } else if (location.hash === '#billing') {
       setActiveSection('billing')
+    } else if (location.hash === '#profile') {
+      setActiveSection('profile')
     }
   }, [location.hash])
 
-  // Placeholder data - will be connected to Firebase later
+  // Profile customization - get from user or use defaults
+  const profileCustomization = user?.profileCustomization || DEFAULT_CUSTOMIZATION
+
+  // Handle saving profile customization
+  const handleSaveCustomization = useCallback(async (customization: UserProfileCustomization) => {
+    try {
+      await updateProfileCustomization(customization)
+    } catch (error) {
+      console.error('Failed to save customization:', error)
+      throw error
+    }
+  }, [updateProfileCustomization])
+
+  // Get subscription data from auth context
+  // Map 'unlimited' (legacy) to 'premium'
+  const rawTier = user?.subscription || 'free'
+  const currentTier: SubscriptionTier = rawTier === 'unlimited' ? 'premium' : (rawTier as SubscriptionTier)
+  const currentPlan = SUBSCRIPTION_PLANS[currentTier] || SUBSCRIPTION_PLANS.free
+
   const [subscription] = useState<Subscription>({
-    tier: 'free',
-    creditsRemaining: 7,
-    creditsTotal: 10,
-    renewalDate: 'February 15, 2025',
-    features: SUBSCRIPTION_PLANS.free.features,
+    tier: currentTier,
+    creditsRemaining: user?.credits || 0,
+    creditsTotal: currentPlan.credits,
+    renewalDate: currentTier !== 'free' ? 'Next month' : null,
+    features: currentPlan.features,
   })
 
   const [settings, setSettings] = useState<AccountSettings>({
-    email: 'player@example.com',
+    email: user?.email || 'player@example.com',
     emailNotifications: true,
     marketingEmails: false,
     twoFactorEnabled: false,
@@ -110,10 +175,18 @@ export default function Account() {
   const handleUpgrade = (tier: SubscriptionTier) => {
     // TODO: Implement Stripe checkout
     console.log('Upgrading to:', tier)
-    alert(`Upgrade to ${SUBSCRIPTION_PLANS[tier].name} - Coming soon!`)
+    alert(`Upgrade to ${SUBSCRIPTION_PLANS[tier].name} - Coming soon! Stripe integration pending.`)
   }
 
-  const creditsPercentage = (subscription.creditsRemaining / subscription.creditsTotal) * 100
+  const handleBuyTopup = (credits: number, price: string) => {
+    // TODO: Implement Stripe checkout for top-ups
+    console.log('Buying top-up:', credits, 'credits for', price)
+    alert(`Buy ${credits} credits for ${price} - Coming soon! Stripe integration pending.`)
+  }
+
+  const creditsPercentage = currentTier === 'free'
+    ? (subscription.creditsRemaining / 10) * 100
+    : (subscription.creditsRemaining / subscription.creditsTotal) * 100
 
   return (
     <div className="account-page">
@@ -136,6 +209,13 @@ export default function Account() {
           >
             <span className="nav-icon">⚙️</span>
             <span>Settings</span>
+          </button>
+          <button
+            className={`nav-item ${activeSection === 'profile' ? 'active' : ''}`}
+            onClick={() => setActiveSection('profile')}
+          >
+            <span className="nav-icon">🎨</span>
+            <span>Profile</span>
           </button>
           <button
             className={`nav-item ${activeSection === 'subscription' ? 'active' : ''}`}
@@ -262,6 +342,35 @@ export default function Account() {
             </div>
           )}
 
+          {/* Profile Section */}
+          {activeSection === 'profile' && (
+            <div className="profile-section">
+              <div className="section-card">
+                <div className="profile-header">
+                  <h2>Profile Customization</h2>
+                  <div className="tier-benefits">
+                    {(() => {
+                      const summary = getTierCustomizationSummary(currentTier)
+                      return (
+                        <span className="tier-summary">
+                          Your {currentTier.charAt(0).toUpperCase() + currentTier.slice(1)} plan includes{' '}
+                          <strong>{summary.freeAvatars} avatars</strong>,{' '}
+                          <strong>{summary.freeBackgrounds} backgrounds</strong>, and{' '}
+                          <strong>{summary.freeThemes} themes</strong> for free
+                          {summary.canUploadAvatar && ' + custom avatar upload'}
+                        </span>
+                      )
+                    })()}
+                  </div>
+                </div>
+                <ProfileCustomization
+                  currentCustomization={profileCustomization}
+                  onSave={handleSaveCustomization}
+                />
+              </div>
+            </div>
+          )}
+
           {/* Subscription Section */}
           {activeSection === 'subscription' && (
             <div className="subscription-section">
@@ -283,13 +392,17 @@ export default function Account() {
                     </div>
                     <div className="credits-count">
                       <span className="current">{subscription.creditsRemaining}</span>
-                      <span className="separator">/</span>
-                      <span className="total">{subscription.creditsTotal}</span>
+                      {subscription.tier !== 'free' && (
+                        <>
+                          <span className="separator">/</span>
+                          <span className="total">{subscription.creditsTotal}</span>
+                        </>
+                      )}
                     </div>
                     <div className="credits-bar">
                       <div
                         className="credits-fill"
-                        style={{ width: `${creditsPercentage}%` }}
+                        style={{ width: `${Math.min(creditsPercentage, 100)}%` }}
                       />
                     </div>
                     {subscription.renewalDate && (
@@ -310,10 +423,69 @@ export default function Account() {
                       </li>
                     ))}
                   </ul>
+                  {currentPlan.lockedFeatures && currentPlan.lockedFeatures.length > 0 && (
+                    <>
+                      <h4 className="locked-title">Upgrade to unlock:</h4>
+                      <ul className="locked-features">
+                        {currentPlan.lockedFeatures.map((feature, i) => (
+                          <li key={i}>
+                            <span className="lock">🔒</span>
+                            {feature}
+                          </li>
+                        ))}
+                      </ul>
+                    </>
+                  )}
                 </div>
               </div>
 
-              {/* Upgrade Plans */}
+              {/* Credit Costs Info */}
+              <div className="section-card credit-costs-card">
+                <h2>Credit Costs</h2>
+                <p className="credit-costs-desc">Each AI feature uses credits from your balance:</p>
+                <div className="credit-costs-grid">
+                  <div className="credit-cost-item">
+                    <span className="cost-icon">🔍</span>
+                    <span className="cost-name">Simple Analysis</span>
+                    <span className="cost-value">{CREDIT_COSTS.simpleAnalysis} credit</span>
+                  </div>
+                  <div className="credit-cost-item">
+                    <span className="cost-icon">📊</span>
+                    <span className="cost-name">Full Analysis</span>
+                    <span className="cost-value">{CREDIT_COSTS.fullAnalysis} credits</span>
+                  </div>
+                  <div className="credit-cost-item">
+                    <span className="cost-icon">🎴</span>
+                    <span className="cost-name">Deck Generation</span>
+                    <span className="cost-value">{CREDIT_COSTS.deckGeneration} credits</span>
+                  </div>
+                </div>
+              </div>
+
+              {/* Value Comparison Banner */}
+              <div className="section-card value-comparison">
+                <div className="value-badge">💡 Best Value</div>
+                <h3>Why Subscribe?</h3>
+                <div className="comparison-grid">
+                  <div className="comparison-item">
+                    <span className="comparison-label">Pro Subscription</span>
+                    <span className="comparison-value highlight">$0.067/credit</span>
+                    <span className="comparison-detail">120 credits for $7.99/mo</span>
+                  </div>
+                  <div className="comparison-vs">vs</div>
+                  <div className="comparison-item">
+                    <span className="comparison-label">Top-up Purchase</span>
+                    <span className="comparison-value">$0.10/credit</span>
+                    <span className="comparison-detail">40 credits for $3.99</span>
+                  </div>
+                </div>
+                <p className="comparison-savings">
+                  <strong>Subscribers save up to 50%</strong> compared to one-time purchases!
+                </p>
+              </div>
+
+              {/* Subscription Plans */}
+              <h2 className="section-title">Choose Your Plan</h2>
               <div className="plans-grid">
                 {(Object.entries(SUBSCRIPTION_PLANS) as [SubscriptionTier, typeof SUBSCRIPTION_PLANS.free][]).map(
                   ([tier, plan]) => (
@@ -321,10 +493,13 @@ export default function Account() {
                       key={tier}
                       className={`plan-card ${tier === subscription.tier ? 'current' : ''} ${plan.popular ? 'popular' : ''}`}
                     >
-                      {plan.popular && <span className="popular-badge">Most Popular</span>}
+                      {plan.popular && <span className="popular-badge">Best Value</span>}
                       <h3>{plan.name}</h3>
                       <div className="plan-price">{plan.price}</div>
-                      <div className="plan-credits">{plan.credits}</div>
+                      <div className="plan-credits">{plan.creditsLabel}</div>
+                      {tier !== 'free' && (
+                        <div className="plan-per-credit">{plan.perCredit} per credit</div>
+                      )}
                       <ul className="plan-features">
                         {plan.features.map((feature, i) => (
                           <li key={i}>
@@ -333,6 +508,12 @@ export default function Account() {
                           </li>
                         ))}
                       </ul>
+                      {tier !== 'free' && (
+                        <div className="plan-usage">
+                          <span>≈ {Math.floor(plan.credits / CREDIT_COSTS.deckGeneration)} deck generations</span>
+                          <span>≈ {Math.floor(plan.credits / CREDIT_COSTS.fullAnalysis)} full analyses</span>
+                        </div>
+                      )}
                       {tier === subscription.tier ? (
                         <button className="btn btn-current" disabled>
                           Current Plan
@@ -348,6 +529,35 @@ export default function Account() {
                     </div>
                   )
                 )}
+              </div>
+
+              {/* Top-up Packages */}
+              <div className="section-card topup-section">
+                <h2>Need Extra Credits?</h2>
+                <p className="topup-desc">
+                  One-time purchases for when you need a quick boost.
+                  <strong> Subscriptions offer better value!</strong>
+                </p>
+                <div className="topup-grid">
+                  {TOPUP_PACKAGES.map((pkg) => (
+                    <div key={pkg.credits} className="topup-card">
+                      <div className="topup-credits">{pkg.credits} Credits</div>
+                      <div className="topup-price">{pkg.price}</div>
+                      <div className="topup-per-credit">{pkg.perCredit}/credit</div>
+                      <div className="topup-usage">≈ {pkg.deckGens} deck generations</div>
+                      <button
+                        className="btn btn-secondary"
+                        onClick={() => handleBuyTopup(pkg.credits, pkg.price)}
+                      >
+                        Buy Now
+                      </button>
+                    </div>
+                  ))}
+                </div>
+                <p className="topup-note">
+                  💡 Tip: A Pro subscription at $7.99/mo gives you 120 credits ({SUBSCRIPTION_PLANS.pro.perCredit}/credit) —
+                  that's <strong>33% cheaper</strong> than our best top-up rate!
+                </p>
               </div>
             </div>
           )}

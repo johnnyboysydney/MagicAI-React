@@ -599,6 +599,274 @@
   justify-content: center;
 }
 
+/* Section Title */
+.section-title {
+  margin: 2rem 0 1rem;
+  font-size: 1.25rem;
+  color: var(--text);
+}
+
+/* Credit Costs Card */
+.credit-costs-card {
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.05) 0%, rgba(16, 185, 129, 0.05) 100%);
+  border-color: rgba(34, 197, 94, 0.3);
+}
+
+.credit-costs-desc {
+  margin: 0 0 1rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.credit-costs-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+}
+
+.credit-cost-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1rem;
+  background: var(--bg-dark);
+  border-radius: 8px;
+  text-align: center;
+}
+
+.cost-icon {
+  font-size: 1.5rem;
+}
+
+.cost-name {
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+.cost-value {
+  color: var(--primary);
+  font-size: 1.1rem;
+  font-weight: 600;
+}
+
+/* Locked Features */
+.locked-title {
+  margin: 1.5rem 0 0.75rem;
+  font-size: 0.9rem;
+  color: #f59e0b;
+}
+
+.locked-features {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+}
+
+.locked-features li {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  font-size: 0.9rem;
+  color: var(--text-muted);
+}
+
+.locked-features .lock {
+  font-size: 0.8rem;
+}
+
+/* Value Comparison */
+.value-comparison {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(99, 102, 241, 0.1) 100%);
+  border-color: rgba(139, 92, 246, 0.4);
+  position: relative;
+}
+
+.value-badge {
+  position: absolute;
+  top: -10px;
+  left: 1.5rem;
+  background: linear-gradient(135deg, #8b5cf6 0%, #6366f1 100%);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.value-comparison h3 {
+  margin: 0.5rem 0 1.25rem;
+  font-size: 1.1rem;
+  color: var(--text);
+}
+
+.comparison-grid {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2rem;
+  margin-bottom: 1rem;
+}
+
+.comparison-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.25rem;
+  text-align: center;
+}
+
+.comparison-label {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.comparison-value {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--text);
+}
+
+.comparison-value.highlight {
+  color: #22c55e;
+}
+
+.comparison-detail {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.comparison-vs {
+  font-size: 0.9rem;
+  color: var(--text-muted);
+  font-weight: 500;
+}
+
+.comparison-savings {
+  margin: 0;
+  text-align: center;
+  font-size: 0.95rem;
+  color: var(--text);
+}
+
+.comparison-savings strong {
+  color: #22c55e;
+}
+
+/* Plan Per Credit */
+.plan-per-credit {
+  color: #22c55e;
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 1rem;
+}
+
+/* Plan Usage Estimates */
+.plan-usage {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  margin-bottom: 1rem;
+  padding: 0.75rem;
+  background: var(--bg-dark);
+  border-radius: 6px;
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+/* Premium Badge */
+.badge-premium {
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: white;
+}
+
+/* Top-up Section */
+.topup-section h2 {
+  margin-bottom: 0.5rem;
+}
+
+.topup-desc {
+  margin: 0 0 1.5rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+.topup-desc strong {
+  color: var(--primary);
+}
+
+.topup-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 1rem;
+  margin-bottom: 1rem;
+}
+
+.topup-card {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 1.25rem;
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  text-align: center;
+  transition: all 0.2s;
+}
+
+.topup-card:hover {
+  border-color: var(--primary);
+}
+
+.topup-credits {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.topup-price {
+  font-size: 1.5rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+
+.topup-per-credit {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.topup-usage {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  padding: 0.25rem 0.5rem;
+  background: rgba(139, 92, 246, 0.1);
+  border-radius: 4px;
+}
+
+.topup-card .btn {
+  margin-top: 0.5rem;
+  width: 100%;
+}
+
+.topup-note {
+  margin: 1rem 0 0;
+  padding: 1rem;
+  background: rgba(34, 197, 94, 0.1);
+  border-radius: 8px;
+  font-size: 0.85rem;
+  color: var(--text);
+  text-align: center;
+}
+
+.topup-note strong {
+  color: #22c55e;
+}
+
 /* Responsive */
 @media (max-width: 900px) {
   .plans-grid {
@@ -606,6 +874,27 @@
   }
 
   .current-features ul {
+    grid-template-columns: 1fr;
+  }
+
+  .credit-costs-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .topup-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .comparison-grid {
+    flex-direction: column;
+    gap: 1rem;
+  }
+
+  .comparison-vs {
+    display: none;
+  }
+
+  .locked-features {
     grid-template-columns: 1fr;
   }
 }
@@ -639,5 +928,44 @@
 
   .credits-header {
     justify-content: flex-start;
+  }
+}
+
+/* Profile Section */
+.profile-section .section-card {
+  padding: 1.5rem;
+}
+
+.profile-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.profile-header h2 {
+  margin: 0 0 0.5rem 0;
+}
+
+.tier-benefits {
+  display: flex;
+  align-items: center;
+}
+
+.tier-summary {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.tier-summary strong {
+  color: var(--primary);
+}
+
+@media (max-width: 768px) {
+  .profile-header {
+    flex-direction: column;
+    gap: 0.75rem;
   }
 }

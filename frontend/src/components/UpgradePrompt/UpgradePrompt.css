@@ -1,0 +1,327 @@
+/* UpgradePrompt Styles */
+
+/* Modal Overlay */
+.upgrade-prompt-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 1rem;
+  animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/* Modal */
+.upgrade-prompt-modal {
+  background: var(--bg-card, #1a1a2e);
+  border: 1px solid var(--border, #2a2a3e);
+  border-radius: 16px;
+  padding: 2rem;
+  max-width: 400px;
+  width: 100%;
+  text-align: center;
+  position: relative;
+  animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.upgrade-close {
+  position: absolute;
+  top: 1rem;
+  right: 1rem;
+  background: none;
+  border: none;
+  color: var(--text-muted, #888);
+  font-size: 1.5rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 0.25rem;
+}
+
+.upgrade-close:hover {
+  color: var(--text, #fff);
+}
+
+.upgrade-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+}
+
+.upgrade-prompt-modal h3 {
+  margin: 0 0 0.5rem;
+  font-size: 1.5rem;
+  color: var(--text, #fff);
+}
+
+.upgrade-prompt-modal p {
+  margin: 0 0 1.5rem;
+  color: var(--text-muted, #888);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+/* Tier Preview */
+.upgrade-tier-preview {
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.1) 0%, rgba(99, 102, 241, 0.1) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 12px;
+  padding: 1.25rem;
+  margin-bottom: 1.5rem;
+}
+
+.tier-name {
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--primary, #8b5cf6);
+  margin-bottom: 0.25rem;
+}
+
+.tier-price {
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: var(--text, #fff);
+}
+
+.tier-credits {
+  color: var(--text-muted, #888);
+  font-size: 0.9rem;
+}
+
+/* Benefits */
+.upgrade-benefits {
+  text-align: left;
+  margin-bottom: 1.5rem;
+}
+
+.upgrade-benefits h4 {
+  margin: 0 0 0.75rem;
+  font-size: 0.9rem;
+  color: var(--text-muted, #888);
+}
+
+.upgrade-benefits ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.upgrade-benefits li {
+  padding: 0.35rem 0;
+  font-size: 0.9rem;
+  color: var(--text, #fff);
+}
+
+.upgrade-benefits li::before {
+  content: '✓ ';
+  color: #22c55e;
+}
+
+/* Actions */
+.upgrade-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+}
+
+.upgrade-actions .btn {
+  width: 100%;
+  padding: 0.875rem 1.5rem;
+  border-radius: 8px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-decoration: none;
+  text-align: center;
+}
+
+.upgrade-actions .btn-primary {
+  background: var(--primary, #8b5cf6);
+  color: white;
+  border: none;
+}
+
+.upgrade-actions .btn-primary:hover {
+  background: var(--primary-hover, #7c3aed);
+}
+
+.upgrade-actions .btn-secondary {
+  background: transparent;
+  color: var(--text-muted, #888);
+  border: 1px solid var(--border, #2a2a3e);
+}
+
+.upgrade-actions .btn-secondary:hover {
+  color: var(--text, #fff);
+  border-color: var(--text-muted, #888);
+}
+
+/* Credit Deficit */
+.credit-deficit {
+  background: var(--bg-dark, #0f0f1a);
+  border-radius: 8px;
+  padding: 1rem;
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.deficit-label {
+  color: var(--text-muted, #888);
+  font-size: 0.9rem;
+}
+
+.deficit-value {
+  color: #f59e0b;
+  font-size: 1.5rem;
+  font-weight: 700;
+}
+
+/* Banner Variant */
+.upgrade-prompt-banner {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(99, 102, 241, 0.15) 100%);
+  border: 1px solid rgba(139, 92, 246, 0.3);
+  border-radius: 8px;
+  margin-bottom: 1rem;
+}
+
+.upgrade-prompt-banner.credits {
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.15) 100%);
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.banner-icon {
+  font-size: 1.25rem;
+}
+
+.banner-message {
+  flex: 1;
+  font-size: 0.9rem;
+  color: var(--text, #fff);
+}
+
+.banner-close {
+  background: none;
+  border: none;
+  color: var(--text-muted, #888);
+  font-size: 1.25rem;
+  cursor: pointer;
+  padding: 0.25rem;
+  line-height: 1;
+}
+
+.banner-close:hover {
+  color: var(--text, #fff);
+}
+
+/* Inline Variant */
+.upgrade-prompt-inline {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.25rem;
+  background: var(--bg-card, #1a1a2e);
+  border: 1px solid var(--border, #2a2a3e);
+  border-radius: 10px;
+  margin-bottom: 1rem;
+}
+
+.upgrade-prompt-inline.credits {
+  border-color: rgba(245, 158, 11, 0.3);
+}
+
+.inline-content {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.inline-icon {
+  font-size: 1.5rem;
+}
+
+.inline-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.125rem;
+}
+
+.inline-text strong {
+  font-size: 0.95rem;
+  color: var(--text, #fff);
+}
+
+.inline-text span {
+  font-size: 0.85rem;
+  color: var(--text-muted, #888);
+}
+
+/* Small Button */
+.btn-small {
+  padding: 0.5rem 1rem !important;
+  font-size: 0.85rem !important;
+  white-space: nowrap;
+}
+
+/* Responsive */
+@media (max-width: 500px) {
+  .upgrade-prompt-modal {
+    padding: 1.5rem;
+    margin: 1rem;
+  }
+
+  .upgrade-prompt-inline {
+    flex-direction: column;
+    align-items: stretch;
+    text-align: center;
+  }
+
+  .inline-content {
+    justify-content: center;
+    margin-bottom: 0.5rem;
+  }
+
+  .upgrade-prompt-banner {
+    flex-wrap: wrap;
+  }
+
+  .banner-message {
+    flex: 1 1 100%;
+    order: 1;
+  }
+
+  .upgrade-prompt-banner .btn {
+    order: 2;
+    flex: 1;
+  }
+}

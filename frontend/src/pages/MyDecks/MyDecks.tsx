@@ -9,13 +9,14 @@ type FilterFormat = 'all' | 'standard' | 'modern' | 'commander' | 'pioneer' | 'l
 
 export default function MyDecks() {
   const navigate = useNavigate()
-  const { userDecks, deleteDeck, setDeckForAnalysis } = useDeck()
-  const { user } = useAuth()
+  const { userDecks, deleteDeck, setDeckForAnalysis, isLoadingDecks } = useDeck()
+  const { isAuthenticated } = useAuth()
 
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortOption>('updated')
   const [filterFormat, setFilterFormat] = useState<FilterFormat>('all')
   const [showDeleteConfirm, setShowDeleteConfirm] = useState<string | null>(null)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   // Filter and sort decks
   const filteredDecks = useMemo(() => {
@@ -56,9 +57,17 @@ export default function MyDecks() {
     return decks
   }, [userDecks, searchQuery, sortBy, filterFormat])
 
-  const handleDeleteDeck = (deckId: string) => {
-    deleteDeck(deckId)
-    setShowDeleteConfirm(null)
+  const handleDeleteDeck = async (deckId: string) => {
+    setIsDeleting(true)
+    try {
+      await deleteDeck(deckId)
+    } catch (error) {
+      console.error('Error deleting deck:', error)
+      alert('Failed to delete deck. Please try again.')
+    } finally {
+      setIsDeleting(false)
+      setShowDeleteConfirm(null)
+    }
   }
 
   const handleAnalyzeDeck = (deck: Deck) => {
@@ -100,6 +109,34 @@ export default function MyDecks() {
     })
     if (deck.commander) count += 1
     return count
+  }
+
+  // Show login prompt if not authenticated
+  if (!isAuthenticated) {
+    return (
+      <div className="my-decks-page">
+        <div className="empty-state">
+          <div className="empty-icon">🔐</div>
+          <h2>Sign in to view your decks</h2>
+          <p>Create an account or sign in to save and manage your decks.</p>
+          <Link to="/login" className="create-deck-btn">
+            Sign In
+          </Link>
+        </div>
+      </div>
+    )
+  }
+
+  // Show loading state
+  if (isLoadingDecks) {
+    return (
+      <div className="my-decks-page">
+        <div className="empty-state">
+          <div className="empty-icon">⏳</div>
+          <h2>Loading your decks...</h2>
+        </div>
+      </div>
+    )
   }
 
   return (
@@ -243,8 +280,9 @@ export default function MyDecks() {
                       <button
                         className="confirm-btn delete"
                         onClick={() => handleDeleteDeck(deck.id)}
+                        disabled={isDeleting}
                       >
-                        Delete
+                        {isDeleting ? 'Deleting...' : 'Delete'}
                       </button>
                     </div>
                   </div>

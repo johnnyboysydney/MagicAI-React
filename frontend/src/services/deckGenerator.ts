@@ -406,6 +406,134 @@ export function validateDeck(
   }
 }
 
+// Generate deck using Gemini AI
+export async function generateDeckWithAI(
+  request: DeckGenerationRequest,
+  onProgress?: (message: string) => void
+): Promise<ParsedDeck> {
+  const apiKey = import.meta.env.VITE_GOOGLE_API_KEY
+
+  if (!apiKey) {
+    throw new Error('Gemini API key not configured. Please add VITE_GOOGLE_API_KEY to your environment.')
+  }
+
+  onProgress?.('Generating deck with AI...')
+
+  const prompt = generateDeckPrompt(request)
+
+  try {
+    const response = await fetch(
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`,
+      {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          contents: [
+            {
+              parts: [
+                {
+                  text: prompt,
+                },
+              ],
+            },
+          ],
+          generationConfig: {
+            temperature: 0.7,
+            maxOutputTokens: 4096,
+          },
+        }),
+      }
+    )
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}))
+      throw new Error(`Gemini API error: ${response.status} - ${JSON.stringify(errorData)}`)
+    }
+
+    const data = await response.json()
+    const generatedText = data.candidates?.[0]?.content?.parts?.[0]?.text
+
+    if (!generatedText) {
+      throw new Error('No response from Gemini AI')
+    }
+
+    onProgress?.('Parsing AI response...')
+
+    const parsedDeck = parseAIDeckResponse(generatedText)
+
+    // Validate we got enough cards
+    const totalCards = parsedDeck.mainboard.reduce((sum, c) => sum + c.quantity, 0)
+    const rules = FORMAT_RULES[request.format] || FORMAT_RULES.standard
+
+    if (totalCards < rules.minDeckSize * 0.8) {
+      console.warn(`AI generated only ${totalCards} cards, expected at least ${rules.minDeckSize}`)
+      // Could retry here, but for now just proceed
+    }
+
+    return parsedDeck
+  } catch (error) {
+    console.error('Gemini AI deck generation failed:', error)
+    throw error
+  }
+}
+
+// Fetch and validate all cards in a deck
+export async function fetchDeckCards(
+  parsedDeck: ParsedDeck,
+  onProgress?: (message: string) => void
+): Promise<{
+  mainboard: Array<{ quantity: number; name: string; card: ScryfallCard | null }>
+  sideboard: Array<{ quantity: number; name: string; card: ScryfallCard | null }>
+  commander: ScryfallCard | null
+  failedCards: string[]
+}> {
+  const failedCards: string[] = []
+
+  const fetchCard = async (item: { quantity: number; name: string }) => {
+    const card = await fetchCardByName(item.name)
+    if (!card) {
+      failedCards.push(item.name)
+    }
+    return { ...item, card }
+  }
+
+  // Fetch mainboard cards
+  const mainboardResults = []
+  for (let i = 0; i < parsedDeck.mainboard.length; i++) {
+    const item = parsedDeck.mainboard[i]
+    onProgress?.(`Fetching card ${i + 1}/${parsedDeck.mainboard.length}: ${item.name}`)
+    mainboardResults.push(await fetchCard(item))
+    // Small delay to avoid rate limiting
+    await new Promise(resolve => setTimeout(resolve, 75))
+  }
+
+  // Fetch sideboard cards
+  const sideboardResults = []
+  for (const item of parsedDeck.sideboard) {
+    sideboardResults.push(await fetchCard(item))
+    await new Promise(resolve => setTimeout(resolve, 75))
+  }
+
+  // Fetch commander if present
+  let commander: ScryfallCard | null = null
+  if (parsedDeck.commander) {
+    onProgress?.(`Fetching commander: ${parsedDeck.commander}`)
+    commander = await fetchCardByName(parsedDeck.commander)
+    if (!commander) {
+      failedCards.push(parsedDeck.commander)
+    }
+  }
+
+  return {
+    mainboard: mainboardResults,
+    sideboard: sideboardResults,
+    commander,
+    failedCards,
+  }
+}
+
 // Sample deck templates for quick generation (fallback when AI not available)
 export const SAMPLE_DECKS: Record<string, Record<string, string[]>> = {
   standard: {

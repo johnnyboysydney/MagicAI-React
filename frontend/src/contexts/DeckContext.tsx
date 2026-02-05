@@ -1,5 +1,13 @@
-import { createContext, useContext, useState, useCallback, type ReactNode } from 'react'
+import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
 import type { DeckCard } from '../types/card'
+import { useAuth } from './AuthContext'
+import {
+  createDeck as createDeckService,
+  getUserDecks as getUserDecksService,
+  updateDeck as updateDeckService,
+  deleteDeck as deleteDeckService,
+  firestoreDeckToAppDeck,
+} from '../services/deckService'
 
 export interface Deck {
   id: string
@@ -50,9 +58,19 @@ interface DeckContextType {
 
   // User's saved decks
   userDecks: Deck[]
-  addDeck: (deck: Deck) => void
-  updateDeck: (id: string, updates: Partial<Deck>) => void
-  deleteDeck: (id: string) => void
+  isLoadingDecks: boolean
+  saveDeck: (deck: {
+    name: string
+    format: string
+    cards: Map<string, DeckCard>
+    commander: DeckCard | null
+    isPublic?: boolean
+    description?: string
+    tags?: string[]
+  }) => Promise<string>
+  updateDeck: (id: string, updates: Partial<Deck>) => Promise<void>
+  deleteDeck: (id: string) => Promise<void>
+  refreshDecks: () => Promise<void>
 
   // Set deck for analysis (from deck builder)
   setDeckForAnalysis: (
@@ -132,52 +150,6 @@ function calculateDeckStats(
   }
 }
 
-// Mock saved decks
-const MOCK_USER_DECKS: Deck[] = [
-  {
-    id: 'deck-1',
-    name: 'Mono Red Aggro',
-    format: 'standard',
-    cards: new Map(),
-    commander: null,
-    createdAt: '2025-01-20T10:00:00Z',
-    updatedAt: '2025-02-01T15:30:00Z',
-    isPublic: true,
-    authorId: 'mock-user-123',
-    authorName: 'MagicPlayer123',
-    description: 'Fast and furious burn deck',
-    tags: ['aggro', 'burn', 'budget'],
-  },
-  {
-    id: 'deck-2',
-    name: 'Azorius Control',
-    format: 'pioneer',
-    cards: new Map(),
-    commander: null,
-    createdAt: '2025-01-15T08:00:00Z',
-    updatedAt: '2025-01-28T12:00:00Z',
-    isPublic: false,
-    authorId: 'mock-user-123',
-    authorName: 'MagicPlayer123',
-    description: 'Draw-go control with Teferi',
-    tags: ['control', 'competitive'],
-  },
-  {
-    id: 'deck-3',
-    name: 'Krenko Goblin Tribal',
-    format: 'commander',
-    cards: new Map(),
-    commander: null,
-    createdAt: '2025-01-10T14:00:00Z',
-    updatedAt: '2025-02-02T18:45:00Z',
-    isPublic: true,
-    authorId: 'mock-user-123',
-    authorName: 'MagicPlayer123',
-    description: 'Make goblins, swing face',
-    tags: ['tribal', 'aggro', 'tokens'],
-  },
-]
-
 const DEFAULT_BUILDER_STATE: DeckBuilderState = {
   deckName: 'Untitled Deck',
   selectedFormat: 'standard',
@@ -186,10 +158,41 @@ const DEFAULT_BUILDER_STATE: DeckBuilderState = {
 }
 
 export function DeckProvider({ children }: { children: ReactNode }) {
+  const { user, isAuthenticated } = useAuth()
   const [currentDeck, setCurrentDeck] = useState<Deck | null>(null)
   const [currentDeckStats, setCurrentDeckStats] = useState<DeckStats | null>(null)
-  const [userDecks, setUserDecks] = useState<Deck[]>(MOCK_USER_DECKS)
+  const [userDecks, setUserDecks] = useState<Deck[]>([])
+  const [isLoadingDecks, setIsLoadingDecks] = useState(false)
   const [builderState, setBuilderStateInternal] = useState<DeckBuilderState>(DEFAULT_BUILDER_STATE)
+
+  // Load user decks when user logs in
+  useEffect(() => {
+    if (isAuthenticated && user) {
+      loadUserDecks()
+    } else {
+      setUserDecks([])
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isAuthenticated, user?.uid])
+
+  const loadUserDecks = useCallback(async () => {
+    if (!user) return
+
+    setIsLoadingDecks(true)
+    try {
+      const firestoreDecks = await getUserDecksService(user.uid)
+      const decks = firestoreDecks.map(firestoreDeckToAppDeck)
+      setUserDecks(decks)
+    } catch (error) {
+      console.error('Error loading user decks:', error)
+    } finally {
+      setIsLoadingDecks(false)
+    }
+  }, [user])
+
+  const refreshDecks = useCallback(async () => {
+    await loadUserDecks()
+  }, [loadUserDecks])
 
   const setBuilderState = useCallback((state: DeckBuilderState) => {
     setBuilderStateInternal(state)
@@ -217,19 +220,55 @@ export function DeckProvider({ children }: { children: ReactNode }) {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
       isPublic: false,
-      authorId: 'current-user',
-      authorName: 'You',
+      authorId: user?.uid || 'anonymous',
+      authorName: user?.displayName || 'Anonymous',
     }
 
     setCurrentDeck(deck)
     setCurrentDeckStats(stats)
-  }, [])
+  }, [user])
 
-  const addDeck = useCallback((deck: Deck) => {
-    setUserDecks(prev => [deck, ...prev])
-  }, [])
+  const saveDeck = useCallback(async (deck: {
+    name: string
+    format: string
+    cards: Map<string, DeckCard>
+    commander: DeckCard | null
+    isPublic?: boolean
+    description?: string
+    tags?: string[]
+  }): Promise<string> => {
+    if (!user) {
+      throw new Error('Must be logged in to save decks')
+    }
 
-  const updateDeck = useCallback((id: string, updates: Partial<Deck>) => {
+    const deckId = await createDeckService(user.uid, user.displayName, {
+      name: deck.name,
+      format: deck.format,
+      cards: deck.cards,
+      commander: deck.commander,
+      isPublic: deck.isPublic,
+      description: deck.description,
+      tags: deck.tags,
+    })
+
+    // Refresh the decks list
+    await loadUserDecks()
+
+    return deckId
+  }, [user, loadUserDecks])
+
+  const updateDeck = useCallback(async (id: string, updates: Partial<Deck>) => {
+    await updateDeckService(id, {
+      name: updates.name,
+      format: updates.format,
+      cards: updates.cards,
+      commander: updates.commander,
+      isPublic: updates.isPublic,
+      description: updates.description,
+      tags: updates.tags,
+    })
+
+    // Update local state
     setUserDecks(prev =>
       prev.map(deck =>
         deck.id === id ? { ...deck, ...updates, updatedAt: new Date().toISOString() } : deck
@@ -237,7 +276,10 @@ export function DeckProvider({ children }: { children: ReactNode }) {
     )
   }, [])
 
-  const deleteDeck = useCallback((id: string) => {
+  const deleteDeck = useCallback(async (id: string) => {
+    await deleteDeckService(id)
+
+    // Update local state
     setUserDecks(prev => prev.filter(deck => deck.id !== id))
   }, [])
 
@@ -251,9 +293,11 @@ export function DeckProvider({ children }: { children: ReactNode }) {
         setBuilderState,
         clearBuilderState,
         userDecks,
-        addDeck,
+        isLoadingDecks,
+        saveDeck,
         updateDeck,
         deleteDeck,
+        refreshDecks,
         setDeckForAnalysis,
       }}
     >

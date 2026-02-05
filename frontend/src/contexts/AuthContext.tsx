@@ -1,6 +1,23 @@
 import { createContext, useContext, useState, useCallback, useEffect, type ReactNode } from 'react'
+import {
+  signUp,
+  signIn,
+  signInWithGoogle,
+  logOut,
+  getUserProfile,
+  updateUserProfile,
+  updateProfileCustomization as updateProfileCustomizationService,
+  useCredits as useCreditsService,
+  addCredits as addCreditsService,
+  onAuthChange,
+  type UserProfile,
+} from '../services/authService'
+import {
+  type UserProfileCustomization,
+  DEFAULT_CUSTOMIZATION,
+} from '../config/profileCustomization'
 
-// Mock user type - will be replaced with Firebase user later
+// User type for the app
 export interface User {
   uid: string
   email: string
@@ -8,6 +25,7 @@ export interface User {
   photoURL: string | null
   subscription: 'free' | 'pro' | 'unlimited'
   credits: number
+  profileCustomization: UserProfileCustomization
   createdAt: string
 }
 
@@ -20,122 +38,159 @@ interface AuthContextType {
   signup: (email: string, password: string, displayName: string) => Promise<void>
   logout: () => Promise<void>
   updateProfile: (updates: Partial<User>) => Promise<void>
-  useCredits: (amount: number) => void
-  addCredits: (amount: number) => void
+  updateProfileCustomization: (customization: UserProfileCustomization) => Promise<void>
+  useCredits: (amount: number) => Promise<void>
+  addCredits: (amount: number) => Promise<void>
+  refreshUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | null>(null)
 
-// Mock user for development
-const MOCK_USER: User = {
-  uid: 'mock-user-123',
-  email: 'player@example.com',
-  displayName: 'MagicPlayer123',
-  photoURL: null,
-  subscription: 'free',
-  credits: 400,
-  createdAt: '2025-01-15T00:00:00Z',
+// Convert UserProfile to User
+function profileToUser(profile: UserProfile): User {
+  return {
+    uid: profile.uid,
+    email: profile.email,
+    displayName: profile.displayName,
+    photoURL: profile.photoURL,
+    subscription: profile.subscription,
+    credits: profile.credits,
+    profileCustomization: profile.profileCustomization || DEFAULT_CUSTOMIZATION,
+    createdAt: profile.createdAt.toISOString(),
+  }
 }
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
-  // Check for persisted auth state on mount
+  // Listen to Firebase auth state changes
   useEffect(() => {
-    const savedUser = localStorage.getItem('magicai_user')
-    if (savedUser) {
-      try {
-        setUser(JSON.parse(savedUser))
-      } catch {
-        localStorage.removeItem('magicai_user')
+    const unsubscribe = onAuthChange(async (firebaseUser) => {
+      if (firebaseUser) {
+        try {
+          const profile = await getUserProfile(firebaseUser.uid)
+          if (profile) {
+            setUser(profileToUser(profile))
+          }
+        } catch (error) {
+          console.error('Error fetching user profile:', error)
+          setUser(null)
+        }
+      } else {
+        setUser(null)
       }
-    }
-    setIsLoading(false)
+      setIsLoading(false)
+    })
+
+    return () => unsubscribe()
   }, [])
 
-  // Persist user state
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem('magicai_user', JSON.stringify(user))
-    } else {
-      localStorage.removeItem('magicai_user')
+  const refreshUser = useCallback(async () => {
+    if (!user) return
+    try {
+      const profile = await getUserProfile(user.uid)
+      if (profile) {
+        setUser(profileToUser(profile))
+      }
+    } catch (error) {
+      console.error('Error refreshing user:', error)
     }
   }, [user])
 
-  const login = useCallback(async (email: string, _password: string) => {
+  const login = useCallback(async (email: string, password: string) => {
     setIsLoading(true)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    // Mock login - in real app, this would call Firebase
-    setUser({
-      ...MOCK_USER,
-      email,
-      displayName: email.split('@')[0],
-    })
+    try {
+      const profile = await signIn(email, password)
+      setUser(profileToUser(profile))
+    } catch (error) {
+      setIsLoading(false)
+      throw error
+    }
     setIsLoading(false)
   }, [])
 
-  const loginWithGoogle = useCallback(async () => {
+  const handleLoginWithGoogle = useCallback(async () => {
     setIsLoading(true)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    // Mock Google login
-    setUser({
-      ...MOCK_USER,
-      email: 'google.user@gmail.com',
-      displayName: 'Google User',
-    })
+    try {
+      const profile = await signInWithGoogle()
+      setUser(profileToUser(profile))
+    } catch (error) {
+      setIsLoading(false)
+      throw error
+    }
     setIsLoading(false)
   }, [])
 
-  const signup = useCallback(async (email: string, _password: string, displayName: string) => {
+  const signup = useCallback(async (email: string, password: string, displayName: string) => {
     setIsLoading(true)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000))
-
-    // Mock signup
-    setUser({
-      ...MOCK_USER,
-      uid: `user-${Date.now()}`,
-      email,
-      displayName,
-      createdAt: new Date().toISOString(),
-    })
+    try {
+      const profile = await signUp(email, password, displayName)
+      setUser(profileToUser(profile))
+    } catch (error) {
+      setIsLoading(false)
+      throw error
+    }
     setIsLoading(false)
   }, [])
 
   const logout = useCallback(async () => {
     setIsLoading(true)
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500))
-    setUser(null)
+    try {
+      await logOut()
+      setUser(null)
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
     setIsLoading(false)
   }, [])
 
-  const updateProfile = useCallback(async (updates: Partial<User>) => {
+  const handleUpdateProfile = useCallback(async (updates: Partial<User>) => {
     if (!user) return
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500))
-    setUser(prev => prev ? { ...prev, ...updates } : null)
+    try {
+      await updateUserProfile(user.uid, {
+        displayName: updates.displayName,
+        photoURL: updates.photoURL,
+      })
+      setUser(prev => prev ? { ...prev, ...updates } : null)
+    } catch (error) {
+      console.error('Update profile error:', error)
+      throw error
+    }
   }, [user])
 
-  const useCredits = useCallback((amount: number) => {
-    setUser(prev => {
-      if (!prev) return null
-      const newCredits = Math.max(0, prev.credits - amount)
-      return { ...prev, credits: newCredits }
-    })
-  }, [])
+  const handleUseCredits = useCallback(async (amount: number) => {
+    if (!user) return
+    try {
+      const newCredits = await useCreditsService(user.uid, amount)
+      setUser(prev => prev ? { ...prev, credits: newCredits } : null)
+    } catch (error) {
+      console.error('Use credits error:', error)
+      throw error
+    }
+  }, [user])
 
-  const addCredits = useCallback((amount: number) => {
-    setUser(prev => {
-      if (!prev) return null
-      return { ...prev, credits: prev.credits + amount }
-    })
-  }, [])
+  const handleAddCredits = useCallback(async (amount: number) => {
+    if (!user) return
+    try {
+      const newCredits = await addCreditsService(user.uid, amount)
+      setUser(prev => prev ? { ...prev, credits: newCredits } : null)
+    } catch (error) {
+      console.error('Add credits error:', error)
+      throw error
+    }
+  }, [user])
+
+  const handleUpdateProfileCustomization = useCallback(async (customization: UserProfileCustomization) => {
+    if (!user) return
+    try {
+      await updateProfileCustomizationService(user.uid, customization)
+      setUser(prev => prev ? { ...prev, profileCustomization: customization } : null)
+    } catch (error) {
+      console.error('Update profile customization error:', error)
+      throw error
+    }
+  }, [user])
 
   return (
     <AuthContext.Provider
@@ -144,12 +199,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         isLoading,
         isAuthenticated: !!user,
         login,
-        loginWithGoogle,
+        loginWithGoogle: handleLoginWithGoogle,
         signup,
         logout,
-        updateProfile,
-        useCredits,
-        addCredits,
+        updateProfile: handleUpdateProfile,
+        updateProfileCustomization: handleUpdateProfileCustomization,
+        useCredits: handleUseCredits,
+        addCredits: handleAddCredits,
+        refreshUser,
       }}
     >
       {children}

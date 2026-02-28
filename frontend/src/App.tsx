@@ -12,6 +12,8 @@ import Account from './pages/Account/Account'
 import Login from './pages/Auth/Login'
 import Signup from './pages/Auth/Signup'
 import Collection from './pages/Collection/Collection'
+import PublicProfile from './pages/PublicProfile/PublicProfile'
+import DeckDetail from './pages/DeckDetail/DeckDetail'
 import Admin from './pages/Admin/Admin'
 import './App.css'
 
@@ -178,6 +180,22 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <Profile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/profile/:userId"
+            element={
+              <ProtectedRoute>
+                <PublicProfile />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/deck/:deckId"
+            element={
+              <ProtectedRoute>
+                <DeckDetail />
               </ProtectedRoute>
             }
           />

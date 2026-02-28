@@ -1,0 +1,447 @@
+.deck-detail-page {
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 0 1rem 3rem;
+}
+
+.deck-detail-loading,
+.deck-detail-error {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--text-muted);
+}
+
+.deck-detail-error h2 {
+  color: var(--text);
+  margin-bottom: 1rem;
+}
+
+.back-link {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.back-link:hover {
+  text-decoration: underline;
+}
+
+/* Breadcrumb */
+.breadcrumb {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.breadcrumb a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.breadcrumb a:hover {
+  text-decoration: underline;
+}
+
+.breadcrumb .separator {
+  opacity: 0.5;
+}
+
+/* Deck Header */
+.deck-detail-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  margin-bottom: 1rem;
+  flex-wrap: wrap;
+}
+
+.deck-detail-title h1 {
+  margin: 0 0 0.5rem 0;
+  font-size: 1.75rem;
+  color: var(--text);
+}
+
+.deck-detail-meta {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.deck-detail-meta .format-badge {
+  padding: 0.25rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  font-weight: 600;
+}
+
+.deck-detail-meta .meta-item {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+}
+
+.deck-detail-actions {
+  display: flex;
+  gap: 0.5rem;
+  flex-shrink: 0;
+}
+
+.deck-detail-actions .action-btn {
+  padding: 0.5rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--bg-card);
+  color: var(--text);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.deck-detail-actions .action-btn:hover:not(:disabled) {
+  border-color: var(--primary);
+}
+
+.deck-detail-actions .action-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.deck-detail-actions .like-btn.liked {
+  border-color: #ef4444;
+  color: #ef4444;
+}
+
+.deck-detail-actions .share-btn {
+  background: var(--bg-dark);
+}
+
+.deck-detail-actions .analyze-btn {
+  background: rgba(139, 92, 246, 0.1);
+  border-color: rgba(139, 92, 246, 0.3);
+  color: #a78bfa;
+}
+
+.deck-detail-actions .analyze-btn:hover {
+  background: rgba(139, 92, 246, 0.2);
+}
+
+/* Author Bar */
+.deck-author-bar {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  text-decoration: none;
+  margin-bottom: 1.25rem;
+  transition: all 0.2s;
+}
+
+.deck-author-bar:hover {
+  border-color: var(--primary);
+}
+
+.author-avatar-sm {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary) 0%, #a855f7 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.75rem;
+  font-weight: 600;
+}
+
+.author-name-link {
+  color: var(--text);
+  font-size: 0.9rem;
+  font-weight: 500;
+}
+
+/* Description & Tags */
+.deck-detail-description {
+  margin-bottom: 1rem;
+}
+
+.deck-detail-description p {
+  margin: 0;
+  color: var(--text-muted);
+  line-height: 1.6;
+  font-size: 0.95rem;
+}
+
+.deck-detail-tags {
+  display: flex;
+  gap: 0.4rem;
+  flex-wrap: wrap;
+  margin-bottom: 1.5rem;
+}
+
+.detail-tag {
+  padding: 0.2rem 0.6rem;
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  font-size: 0.75rem;
+  color: var(--text-muted);
+}
+
+/* Commander Section */
+.commander-section {
+  margin-bottom: 1.5rem;
+}
+
+.commander-section h3 {
+  margin: 0 0 0.75rem 0;
+  font-size: 1.1rem;
+  color: var(--text);
+}
+
+.commander-card {
+  display: flex;
+  gap: 1rem;
+  padding: 1rem;
+  background: rgba(251, 191, 36, 0.05);
+  border: 1px solid rgba(251, 191, 36, 0.2);
+  border-radius: 10px;
+  align-items: center;
+}
+
+.commander-img {
+  width: 120px;
+  border-radius: 6px;
+}
+
+.commander-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.commander-info .commander-name {
+  font-weight: 600;
+  color: var(--text);
+  font-size: 1.05rem;
+}
+
+.commander-info .commander-type {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  text-transform: capitalize;
+}
+
+/* Card List */
+.card-list-section {
+  margin-bottom: 2rem;
+}
+
+.card-list-section h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  color: var(--text);
+}
+
+.card-list-columns {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1.25rem;
+}
+
+.card-type-group h4 {
+  margin: 0 0 0.5rem 0;
+  font-size: 0.9rem;
+  color: var(--primary);
+  padding-bottom: 0.25rem;
+  border-bottom: 1px solid var(--border);
+}
+
+.card-type-group ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.card-type-group li {
+  display: flex;
+  gap: 0.5rem;
+  padding: 0.2rem 0;
+  font-size: 0.85rem;
+  color: var(--text);
+}
+
+.card-qty {
+  color: var(--text-muted);
+  font-weight: 500;
+  min-width: 22px;
+}
+
+/* Comments */
+.comments-section {
+  border-top: 1px solid var(--border);
+  padding-top: 1.5rem;
+}
+
+.comments-section h3 {
+  margin: 0 0 1rem 0;
+  font-size: 1.1rem;
+  color: var(--text);
+}
+
+.comment-form {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.comment-form textarea {
+  padding: 0.75rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 0.9rem;
+  resize: vertical;
+}
+
+.comment-form textarea:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.comment-form textarea::placeholder {
+  color: var(--text-muted);
+}
+
+.submit-comment-btn {
+  align-self: flex-end;
+  padding: 0.5rem 1.25rem;
+  background: var(--primary);
+  color: white;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.submit-comment-btn:hover:not(:disabled) {
+  background: var(--primary-hover);
+}
+
+.submit-comment-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.comments-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.comment-item {
+  padding: 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.comment-header {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.comment-author {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  text-decoration: none;
+  color: var(--text);
+  font-weight: 500;
+  font-size: 0.85rem;
+}
+
+.comment-author:hover {
+  color: var(--primary);
+}
+
+.comment-avatar {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, var(--primary) 0%, #a855f7 100%);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.65rem;
+  font-weight: 600;
+}
+
+.comment-date {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  margin-left: auto;
+}
+
+.delete-comment-btn {
+  background: none;
+  border: none;
+  color: var(--text-muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 0 0.25rem;
+  opacity: 0.5;
+}
+
+.delete-comment-btn:hover {
+  color: #ef4444;
+  opacity: 1;
+}
+
+.comment-content {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  line-height: 1.5;
+}
+
+.no-comments {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-muted);
+  font-size: 0.9rem;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .deck-detail-header {
+    flex-direction: column;
+  }
+
+  .deck-detail-actions {
+    width: 100%;
+    justify-content: stretch;
+  }
+
+  .deck-detail-actions .action-btn {
+    flex: 1;
+    text-align: center;
+  }
+
+  .card-list-columns {
+    grid-template-columns: 1fr;
+  }
+}

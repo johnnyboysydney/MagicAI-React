@@ -220,6 +220,38 @@ export async function getPublicDecks(limitCount = 20): Promise<FirestoreDeck[]> 
   })
 }
 
+// Get public decks by a specific user
+export async function getPublicDecksByUser(userId: string): Promise<FirestoreDeck[]> {
+  const decksRef = collection(db, 'decks')
+  const q = query(
+    decksRef,
+    where('authorId', '==', userId),
+    where('isPublic', '==', true),
+    orderBy('updatedAt', 'desc')
+  )
+
+  const querySnapshot = await getDocs(q)
+  return querySnapshot.docs.map((doc) => {
+    const data = doc.data()
+    return {
+      id: doc.id,
+      name: data.name,
+      format: data.format,
+      authorId: data.authorId,
+      authorName: data.authorName,
+      isPublic: data.isPublic,
+      description: data.description,
+      tags: data.tags,
+      cards: data.cards || [],
+      commander: data.commander,
+      likeCount: data.likeCount || 0,
+      viewCount: data.viewCount || 0,
+      createdAt: timestampToDate(data.createdAt),
+      updatedAt: timestampToDate(data.updatedAt),
+    }
+  })
+}
+
 // Update a deck
 export async function updateDeck(
   deckId: string,

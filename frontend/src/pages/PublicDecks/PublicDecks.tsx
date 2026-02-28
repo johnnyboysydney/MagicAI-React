@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
-import { useNavigate } from 'react-router-dom'
-import { useDeck } from '../../contexts/DeckContext'
+import { useNavigate, Link } from 'react-router-dom'
 import type { Deck } from '../../contexts/DeckContext'
 import { useAuth } from '../../contexts/AuthContext'
 import { getPublicDecks, firestoreDeckToAppDeck } from '../../services/deckService'
@@ -12,7 +11,6 @@ type FilterFormat = 'all' | 'standard' | 'modern' | 'commander' | 'pioneer' | 'l
 
 export default function PublicDecks() {
   const navigate = useNavigate()
-  const { setDeckForAnalysis } = useDeck()
   const { user } = useAuth()
 
   const [decks, setDecks] = useState<Deck[]>([])
@@ -89,11 +87,6 @@ export default function PublicDecks() {
 
     return result
   }, [decks, searchQuery, sortBy, filterFormat])
-
-  const handleViewDeck = (deck: Deck) => {
-    setDeckForAnalysis(deck.name, deck.format, deck.cards, deck.commander)
-    navigate('/analysis')
-  }
 
   const handleLike = useCallback(async (e: React.MouseEvent, deckId: string) => {
     e.stopPropagation()
@@ -261,7 +254,7 @@ export default function PublicDecks() {
       {!isLoading && !error && filteredDecks.length > 0 && (
         <div className="decks-grid">
           {filteredDecks.map((deck) => (
-            <div key={deck.id} className="deck-card" onClick={() => handleViewDeck(deck)}>
+            <div key={deck.id} className="deck-card" onClick={() => navigate(`/deck/${deck.id}`)}>
               <div className="deck-card-header">
                 <div className="deck-info">
                   <h3 className="deck-name">{deck.name}</h3>
@@ -315,12 +308,16 @@ export default function PublicDecks() {
               )}
 
               <div className="deck-footer">
-                <div className="author-info">
+                <Link
+                  to={`/profile/${deck.authorId}`}
+                  className="author-info"
+                  onClick={(e) => e.stopPropagation()}
+                >
                   <div className="author-avatar">
                     {deck.authorName.charAt(0).toUpperCase()}
                   </div>
                   <span className="author-name">{deck.authorName}</span>
-                </div>
+                </Link>
                 <span className="updated-at">{formatDate(deck.updatedAt)}</span>
               </div>
             </div>

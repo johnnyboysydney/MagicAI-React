@@ -25,6 +25,30 @@
   text-decoration: underline;
 }
 
+/* Back Button */
+.deck-detail-page .back-nav-btn,
+.public-profile-page .back-nav-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.5rem 1rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  color: var(--text);
+  font-size: 0.9rem;
+  cursor: pointer;
+  transition: all 0.2s;
+  margin-bottom: 1rem;
+}
+
+.deck-detail-page .back-nav-btn:hover,
+.public-profile-page .back-nav-btn:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+  transform: translateX(-2px);
+}
+
 /* Breadcrumb */
 .breadcrumb {
   display: flex;

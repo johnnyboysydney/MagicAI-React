@@ -240,7 +240,10 @@ export default function DeckDetail() {
 
   return (
     <div className="deck-detail-page">
-      {/* Breadcrumb */}
+      {/* Back Navigation */}
+      <button type="button" className="back-nav-btn" onClick={() => navigate(-1)}>
+        &larr; Back
+      </button>
       <div className="breadcrumb">
         <Link to="/public-decks">Explore</Link>
         <span className="separator">/</span>

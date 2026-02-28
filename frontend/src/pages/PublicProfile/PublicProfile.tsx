@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import type { Deck } from '../../contexts/DeckContext'
 import { getUserProfile } from '../../services/authService'
@@ -17,6 +17,7 @@ interface PublicUser {
 export default function PublicProfile() {
   const { userId } = useParams<{ userId: string }>()
   const { user: currentUser } = useAuth()
+  const navigate = useNavigate()
 
   const [profileUser, setProfileUser] = useState<PublicUser | null>(null)
   const [publicDecks, setPublicDecks] = useState<Deck[]>([])
@@ -113,6 +114,11 @@ export default function PublicProfile() {
 
   return (
     <div className="public-profile-page">
+      {/* Back Navigation */}
+      <button type="button" className="back-nav-btn" onClick={() => navigate(-1)}>
+        &larr; Back
+      </button>
+
       {/* Profile Header */}
       <div className="profile-header">
         <div className="profile-avatar-large">

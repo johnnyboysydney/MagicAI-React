@@ -303,11 +303,19 @@
   min-width: 0;
   overflow: hidden;
   text-decoration: none;
-  transition: opacity 0.2s;
+  transition: all 0.2s;
+  padding: 0.25rem 0.5rem;
+  border-radius: 6px;
+  margin-left: -0.5rem;
 }
 
 .public-decks-page .author-info:hover {
-  opacity: 0.8;
+  background: rgba(102, 126, 234, 0.1);
+}
+
+.public-decks-page .author-info:hover .author-name {
+  color: var(--primary);
+  text-decoration: underline;
 }
 
 .public-decks-page .author-avatar {
@@ -330,6 +338,7 @@
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+  transition: color 0.2s;
 }
 
 .public-decks-page .updated-at {

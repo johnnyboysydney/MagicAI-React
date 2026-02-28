@@ -1,6 +1,8 @@
-import { useState, useCallback, useRef } from 'react'
+import { useState, useCallback, useRef, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { useDeck } from '../../contexts/DeckContext'
+import { getCollectionCount } from '../../services/collectionService'
 import {
   AVATARS,
   DEFAULT_CUSTOMIZATION,
@@ -9,10 +11,19 @@ import './Profile.css'
 
 export default function Profile() {
   const { user, updateProfile, updateProfileCustomization } = useAuth()
+  const { userDecks } = useDeck()
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [avatarKey, setAvatarKey] = useState(0)
+  const [collectionCount, setCollectionCount] = useState<number | null>(null)
+
+  // Fetch collection count
+  useEffect(() => {
+    if (user?.uid) {
+      getCollectionCount(user.uid).then(setCollectionCount).catch(() => setCollectionCount(0))
+    }
+  }, [user?.uid])
 
   const customization = user?.profileCustomization || DEFAULT_CUSTOMIZATION
 
@@ -216,22 +227,22 @@ export default function Profile() {
               <div className="stat-item">
                 <span className="stat-icon">🎴</span>
                 <div className="stat-details">
-                  <span className="stat-number">-</span>
+                  <span className="stat-number">{userDecks.length}</span>
                   <span className="stat-label">Decks Created</span>
                 </div>
               </div>
               <div className="stat-item">
-                <span className="stat-icon">📷</span>
+                <span className="stat-icon">📦</span>
                 <div className="stat-details">
-                  <span className="stat-number">-</span>
-                  <span className="stat-label">Cards Scanned</span>
+                  <span className="stat-number">{collectionCount !== null ? collectionCount : '-'}</span>
+                  <span className="stat-label">Cards in Collection</span>
                 </div>
               </div>
               <div className="stat-item">
-                <span className="stat-icon">🤖</span>
+                <span className="stat-icon">💎</span>
                 <div className="stat-details">
-                  <span className="stat-number">-</span>
-                  <span className="stat-label">AI Analyses</span>
+                  <span className="stat-number">{user?.credits ?? 0}</span>
+                  <span className="stat-label">Credits Available</span>
                 </div>
               </div>
             </div>

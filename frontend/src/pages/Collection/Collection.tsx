@@ -129,11 +129,39 @@ export default function Collection() {
         (c) => c.name.toLowerCase() === gc.name.toLowerCase()
       )
 
+      // Build scryfallData with image_uris from collection card's imageUri
+      const imageUri = collectionCard?.imageUri || ''
+      const scryfallData = {
+        id: collectionCard?.scryfallId || '',
+        name: gc.name,
+        mana_cost: collectionCard?.manaCost || '',
+        cmc: collectionCard?.cmc || 0,
+        type_line: collectionCard?.typeLine || '',
+        oracle_text: collectionCard?.oracleText || '',
+        colors: collectionCard?.colors || [],
+        color_identity: collectionCard?.colorIdentity || [],
+        set: collectionCard?.setCode || '',
+        set_name: collectionCard?.setName || '',
+        rarity: collectionCard?.rarity || 'common',
+        prices: {
+          usd: String(collectionCard?.price || 0),
+          usd_foil: String(collectionCard?.foilPrice || 0),
+        },
+        image_uris: {
+          small: imageUri.replace('/normal/', '/small/'),
+          normal: imageUri,
+          large: imageUri.replace('/normal/', '/large/'),
+          art_crop: imageUri.replace('/normal/', '/art_crop/'),
+        },
+        scryfall_uri: `https://scryfall.com/card/${collectionCard?.setCode || ''}`,
+        legalities: collectionCard?.legalities || {},
+      } as ScryfallCard
+
       const deckCard: DeckCard = {
         id: collectionCard?.scryfallId || gc.name.toLowerCase().replace(/\s+/g, '-'),
         name: gc.name,
         quantity: gc.quantity,
-        scryfallData: {} as ScryfallCard, // Minimal - DeckBuilder will work without full Scryfall data
+        scryfallData,
         cardType: (collectionCard?.cardType || 'other') as DeckCard['cardType'],
         cmc: collectionCard?.cmc || 0,
         colors: collectionCard?.colors || [],

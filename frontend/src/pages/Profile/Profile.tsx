@@ -12,12 +12,13 @@ export default function Profile() {
   const [isEditing, setIsEditing] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [avatarKey, setAvatarKey] = useState(0)
 
   const customization = user?.profileCustomization || DEFAULT_CUSTOMIZATION
 
   const [editForm, setEditForm] = useState({
     displayName: user?.displayName || '',
-    bio: '', // TODO: add bio field to user profile
+    bio: user?.bio || '',
   })
 
   // Get the user's avatar URL - priority: custom upload > Google photo > premade avatar > initials
@@ -70,11 +71,15 @@ export default function Profile() {
             ...customization,
             customAvatarUrl: dataUrl,
           })
+          // Force re-render of avatar by incrementing key
+          setAvatarKey((k) => k + 1)
         } catch (error) {
           console.error('Failed to upload avatar:', error)
         }
       }
       reader.readAsDataURL(file)
+      // Reset file input so same file can be re-selected
+      if (fileInputRef.current) fileInputRef.current.value = ''
     },
     [customization, updateProfileCustomization]
   )
@@ -84,6 +89,7 @@ export default function Profile() {
     try {
       await updateProfile({
         displayName: editForm.displayName,
+        bio: editForm.bio,
       })
       setIsEditing(false)
     } catch (error) {
@@ -96,7 +102,7 @@ export default function Profile() {
   const handleCancel = () => {
     setEditForm({
       displayName: user?.displayName || '',
-      bio: '',
+      bio: user?.bio || '',
     })
     setIsEditing(false)
   }
@@ -123,7 +129,7 @@ export default function Profile() {
           <div className="profile-avatar-section">
             <div className="avatar-container">
               {avatarUrl ? (
-                <img src={avatarUrl} alt="Avatar" className="avatar-image" />
+                <img key={avatarKey} src={avatarUrl} alt="Avatar" className="avatar-image" />
               ) : avatarEmoji ? (
                 <div className="avatar-placeholder avatar-emoji-large">{avatarEmoji}</div>
               ) : (
@@ -180,7 +186,7 @@ export default function Profile() {
                 rows={3}
               />
             ) : (
-              <p className="bio-text">{editForm.bio || 'No bio set'}</p>
+              <p className="bio-text">{user?.bio || 'No bio set'}</p>
             )}
           </div>
 
@@ -291,7 +297,7 @@ export default function Profile() {
               <span className="link-icon">🎴</span>
               <span>My Decks</span>
             </Link>
-            <Link to="/account#profile" className="quick-link">
+            <Link to="/account#customize" className="quick-link">
               <span className="link-icon">🎨</span>
               <span>Customize Profile</span>
             </Link>

@@ -112,7 +112,7 @@ const TOPUP_PACKAGES = [
 export default function Account() {
   const location = useLocation()
   const { user, updateProfileCustomization } = useAuth()
-  const [activeSection, setActiveSection] = useState<'settings' | 'profile' | 'subscription' | 'billing'>('settings')
+  const [activeSection, setActiveSection] = useState<'settings' | 'customize' | 'subscription' | 'billing'>('settings')
   const [isSaving, setIsSaving] = useState(false)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
@@ -122,8 +122,8 @@ export default function Account() {
       setActiveSection('subscription')
     } else if (location.hash === '#billing') {
       setActiveSection('billing')
-    } else if (location.hash === '#profile') {
-      setActiveSection('profile')
+    } else if (location.hash === '#customize') {
+      setActiveSection('customize')
     }
   }, [location.hash])
 
@@ -211,11 +211,11 @@ export default function Account() {
             <span>Settings</span>
           </button>
           <button
-            className={`nav-item ${activeSection === 'profile' ? 'active' : ''}`}
-            onClick={() => setActiveSection('profile')}
+            className={`nav-item ${activeSection === 'customize' ? 'active' : ''}`}
+            onClick={() => setActiveSection('customize')}
           >
             <span className="nav-icon">🎨</span>
-            <span>Profile</span>
+            <span>Customize</span>
           </button>
           <button
             className={`nav-item ${activeSection === 'subscription' ? 'active' : ''}`}
@@ -343,7 +343,7 @@ export default function Account() {
           )}
 
           {/* Profile Section */}
-          {activeSection === 'profile' && (
+          {activeSection === 'customize' && (
             <div className="profile-section">
               <div className="section-card">
                 <div className="profile-header">

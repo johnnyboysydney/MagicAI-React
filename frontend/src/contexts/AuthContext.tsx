@@ -23,6 +23,7 @@ export interface User {
   email: string
   displayName: string
   photoURL: string | null
+  bio: string
   subscription: 'free' | 'pro' | 'unlimited'
   credits: number
   profileCustomization: UserProfileCustomization
@@ -53,6 +54,7 @@ function profileToUser(profile: UserProfile): User {
     email: profile.email,
     displayName: profile.displayName,
     photoURL: profile.photoURL,
+    bio: profile.bio || '',
     subscription: profile.subscription,
     credits: profile.credits,
     profileCustomization: profile.profileCustomization || DEFAULT_CUSTOMIZATION,
@@ -151,6 +153,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await updateUserProfile(user.uid, {
         displayName: updates.displayName,
         photoURL: updates.photoURL,
+        bio: updates.bio,
       })
       setUser(prev => prev ? { ...prev, ...updates } : null)
     } catch (error) {

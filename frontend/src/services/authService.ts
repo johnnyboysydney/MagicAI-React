@@ -31,6 +31,7 @@ export interface UserProfile {
   email: string
   displayName: string
   photoURL: string | null
+  bio: string
   subscription: 'free' | 'pro' | 'unlimited'
   credits: number
   profileCustomization: UserProfileCustomization
@@ -59,6 +60,7 @@ async function createUserProfile(firebaseUser: FirebaseUser): Promise<UserProfil
       email: firebaseUser.email || '',
       displayName: data.displayName || firebaseUser.displayName || 'Player',
       photoURL: data.photoURL || firebaseUser.photoURL,
+      bio: data.bio || '',
       subscription: data.subscription || 'free',
       credits,
       profileCustomization: data.profileCustomization || DEFAULT_CUSTOMIZATION,
@@ -79,6 +81,7 @@ async function createUserProfile(firebaseUser: FirebaseUser): Promise<UserProfil
     email: firebaseUser.email || '',
     displayName: firebaseUser.displayName || 'Player',
     photoURL: firebaseUser.photoURL,
+    bio: '',
     subscription: 'free',
     credits: startingCredits,
     profileCustomization: DEFAULT_CUSTOMIZATION,
@@ -143,6 +146,7 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
     email: data.email || '',
     displayName: data.displayName || 'Player',
     photoURL: data.photoURL,
+    bio: data.bio || '',
     subscription: data.subscription || 'free',
     credits: data.credits ?? 0,
     profileCustomization: data.profileCustomization || DEFAULT_CUSTOMIZATION,
@@ -154,7 +158,7 @@ export async function getUserProfile(uid: string): Promise<UserProfile | null> {
 // Update user profile
 export async function updateUserProfile(
   uid: string,
-  updates: Partial<Pick<UserProfile, 'displayName' | 'photoURL'>>
+  updates: Partial<Pick<UserProfile, 'displayName' | 'photoURL' | 'bio'>>
 ): Promise<void> {
   const userRef = doc(db, 'users', uid)
   await updateDoc(userRef, {

@@ -9,7 +9,7 @@ type FilterFormat = 'all' | 'standard' | 'modern' | 'commander' | 'pioneer' | 'l
 
 export default function MyDecks() {
   const navigate = useNavigate()
-  const { userDecks, deleteDeck, setDeckForAnalysis, isLoadingDecks } = useDeck()
+  const { userDecks, deleteDeck, setDeckForAnalysis, setBuilderState, isLoadingDecks } = useDeck()
   const { isAuthenticated } = useAuth()
 
   const [searchQuery, setSearchQuery] = useState('')
@@ -68,6 +68,17 @@ export default function MyDecks() {
       setIsDeleting(false)
       setShowDeleteConfirm(null)
     }
+  }
+
+  const handleEditDeck = (deck: Deck) => {
+    setBuilderState({
+      deckName: deck.name,
+      selectedFormat: deck.format,
+      deckCards: deck.cards,
+      commander: deck.commander,
+      editingDeckId: deck.id,
+    })
+    navigate('/deck-builder')
   }
 
   const handleAnalyzeDeck = (deck: Deck) => {
@@ -251,9 +262,9 @@ export default function MyDecks() {
               </div>
 
               <div className="deck-actions">
-                <Link to="/deck-builder" className="action-btn edit">
+                <button type="button" className="action-btn edit" onClick={() => handleEditDeck(deck)}>
                   Edit
-                </Link>
+                </button>
                 <button className="action-btn analyze" onClick={() => handleAnalyzeDeck(deck)}>
                   Analyze
                 </button>

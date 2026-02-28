@@ -26,6 +26,15 @@ export interface SearchFilters {
   rarity?: string // common, uncommon, rare, mythic
   isLegendary?: boolean
   format?: string // standard, modern, legacy, etc.
+  // Advanced filters
+  cmcMin?: number
+  cmcMax?: number
+  powerMin?: number
+  powerMax?: number
+  toughnessMin?: number
+  toughnessMax?: number
+  oracleText?: string // Search within card text
+  setCode?: string // Set/edition code (e.g. 'MKM')
 }
 
 interface SearchResult {
@@ -72,6 +81,40 @@ function buildSearchQuery(textQuery: string, filters: SearchFilters): string {
     parts.push(`f:${filters.format}`)
   }
 
+  // Advanced: CMC range
+  if (filters.cmcMin !== undefined && filters.cmcMin > 0) {
+    parts.push(`cmc>=${filters.cmcMin}`)
+  }
+  if (filters.cmcMax !== undefined && filters.cmcMax > 0) {
+    parts.push(`cmc<=${filters.cmcMax}`)
+  }
+
+  // Advanced: Power range
+  if (filters.powerMin !== undefined && filters.powerMin > 0) {
+    parts.push(`pow>=${filters.powerMin}`)
+  }
+  if (filters.powerMax !== undefined && filters.powerMax > 0) {
+    parts.push(`pow<=${filters.powerMax}`)
+  }
+
+  // Advanced: Toughness range
+  if (filters.toughnessMin !== undefined && filters.toughnessMin > 0) {
+    parts.push(`tou>=${filters.toughnessMin}`)
+  }
+  if (filters.toughnessMax !== undefined && filters.toughnessMax > 0) {
+    parts.push(`tou<=${filters.toughnessMax}`)
+  }
+
+  // Advanced: Oracle text search
+  if (filters.oracleText && filters.oracleText.trim()) {
+    parts.push(`o:"${filters.oracleText.trim()}"`)
+  }
+
+  // Advanced: Set code
+  if (filters.setCode && filters.setCode.trim()) {
+    parts.push(`e:${filters.setCode.trim().toLowerCase()}`)
+  }
+
   return parts.join(' ')
 }
 
@@ -94,7 +137,14 @@ export function useCardSearch(query: string, filters: SearchFilters = {}, delay:
 
     // Check if we have enough to search (either text or filters)
     const hasFilters = currentFilters.type || currentFilters.colors?.length ||
-                       currentFilters.rarity || currentFilters.isLegendary || currentFilters.format
+                       currentFilters.rarity || currentFilters.isLegendary || currentFilters.format ||
+                       (currentFilters.cmcMin && currentFilters.cmcMin > 0) ||
+                       (currentFilters.cmcMax && currentFilters.cmcMax > 0) ||
+                       (currentFilters.powerMin && currentFilters.powerMin > 0) ||
+                       (currentFilters.powerMax && currentFilters.powerMax > 0) ||
+                       (currentFilters.toughnessMin && currentFilters.toughnessMin > 0) ||
+                       (currentFilters.toughnessMax && currentFilters.toughnessMax > 0) ||
+                       currentFilters.oracleText?.trim() || currentFilters.setCode?.trim()
     const hasText = debouncedQuery && debouncedQuery.length >= 2
 
     if (!hasText && !hasFilters) {

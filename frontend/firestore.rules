@@ -38,6 +38,16 @@ service cloud.firestore {
       allow update: if request.auth != null && resource.data.authorId == request.auth.uid;
       // Users can only delete their own decks
       allow delete: if request.auth != null && resource.data.authorId == request.auth.uid;
+
+      // Deck version history subcollection - only deck author can manage
+      match /versions/{versionId} {
+        allow read: if request.auth != null &&
+          get(/databases/$(database)/documents/decks/$(deckId)).data.authorId == request.auth.uid;
+        allow create, delete: if request.auth != null &&
+          get(/databases/$(database)/documents/decks/$(deckId)).data.authorId == request.auth.uid;
+        // Versions are immutable snapshots
+        allow update: if false;
+      }
     }
 
     // Admins collection - readable by admins to check their own status

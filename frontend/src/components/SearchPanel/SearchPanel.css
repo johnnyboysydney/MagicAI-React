@@ -441,6 +441,108 @@
   transform: scale(1.1);
 }
 
+/* Advanced Filter Toggle */
+.advanced-toggle-btn {
+  width: 100%;
+  padding: 0.5rem 0.75rem;
+  background: transparent;
+  border: 1px dashed var(--border);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 0.8rem;
+  cursor: pointer;
+  text-align: left;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.2s;
+}
+
+.advanced-toggle-btn:hover {
+  border-color: var(--primary);
+  color: var(--text);
+}
+
+.advanced-toggle-btn.active {
+  color: var(--primary);
+  border-color: var(--primary);
+  border-style: solid;
+}
+
+/* Advanced Filters */
+.advanced-filters {
+  display: flex;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.range-input {
+  flex: 1;
+  padding: 0.4rem 0.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 0.8rem;
+  width: 0;
+  text-align: center;
+}
+
+.range-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.range-input::placeholder {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
+/* Hide number spinners for cleaner look */
+.range-input::-webkit-inner-spin-button,
+.range-input::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+.range-input[type=number] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+.range-separator {
+  font-size: 0.75rem;
+  color: var(--text-muted);
+  flex-shrink: 0;
+}
+
+.filter-text-input {
+  width: 100%;
+  padding: 0.4rem 0.5rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  color: var(--text);
+  font-size: 0.8rem;
+}
+
+.filter-text-input:focus {
+  outline: none;
+  border-color: var(--primary);
+}
+
+.filter-text-input::placeholder {
+  color: var(--text-muted);
+  font-size: 0.75rem;
+}
+
 .panel-footer {
   padding: 0.75rem 1rem;
   border-top: 1px solid var(--border);

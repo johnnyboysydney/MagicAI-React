@@ -16,6 +16,8 @@ import {
   type DeckArchetype,
   type DeckGenerationRequest,
 } from '../../services/deckGenerator'
+import { saveVersion, getVersions, versionCardsToDeckCards, versionCardToDeckCard, type DeckVersion } from '../../services/versionService'
+import { useTier } from '../../hooks/useTier'
 import './DeckBuilder.css'
 
 // Format options
@@ -31,7 +33,8 @@ const DECK_FORMATS = [
 
 export default function DeckBuilder() {
   const navigate = useNavigate()
-  const { setDeckForAnalysis, builderState, setBuilderState, saveDeck } = useDeck()
+  const { setDeckForAnalysis, builderState, setBuilderState, saveDeck, updateDeck, refreshDecks } = useDeck()
+  const { canUse } = useTier()
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Initialize from context (persisted state) or defaults
@@ -39,12 +42,19 @@ export default function DeckBuilder() {
   const [deckName, setDeckName] = useState(builderState.deckName)
   const [deckCards, setDeckCards] = useState<Map<string, DeckCard>>(builderState.deckCards)
   const [commander, setCommander] = useState<DeckCard | null>(builderState.commander)
+  const [editingDeckId, setEditingDeckId] = useState<string | null>(builderState.editingDeckId)
   const [isSaving, setIsSaving] = useState(false)
   const [isGenerating, setIsGenerating] = useState(false)
   const [showGenerateModal, setShowGenerateModal] = useState(false)
   const [generationProgress, setGenerationProgress] = useState<string>('')
   const [generationError, setGenerationError] = useState<string | null>(null)
   const [showScanner, setShowScanner] = useState(false)
+
+  // Version history state
+  const [showVersionHistory, setShowVersionHistory] = useState(false)
+  const [versions, setVersions] = useState<DeckVersion[]>([])
+  const [isLoadingVersions, setIsLoadingVersions] = useState(false)
+  const canUseVersioning = canUse('deckVersioning')
 
   // Persist deck state to context when it changes
   useEffect(() => {
@@ -53,8 +63,9 @@ export default function DeckBuilder() {
       selectedFormat,
       deckCards,
       commander,
+      editingDeckId,
     })
-  }, [deckName, selectedFormat, deckCards, commander, setBuilderState])
+  }, [deckName, selectedFormat, deckCards, commander, editingDeckId, setBuilderState])
 
   // AI Generation options
   const [selectedArchetype, setSelectedArchetype] = useState<DeckArchetype>('Midrange')
@@ -249,9 +260,11 @@ export default function DeckBuilder() {
 
   // Clear deck
   const handleClear = useCallback(() => {
-    if (confirm('Clear all cards from deck?')) {
+    if (confirm('Clear all cards and start a new deck?')) {
       setDeckCards(new Map())
       setCommander(null)
+      setEditingDeckId(null)
+      setDeckName('Untitled Deck')
     }
   }, [])
 
@@ -263,20 +276,90 @@ export default function DeckBuilder() {
 
     setIsSaving(true)
     try {
-      await saveDeck({
-        name: deckName,
-        format: selectedFormat,
-        cards: deckCards,
-        commander,
-        isPublic: false,
-      })
-      alert('Deck saved successfully!')
+      if (editingDeckId) {
+        // Update existing deck
+        await updateDeck(editingDeckId, {
+          name: deckName,
+          format: selectedFormat,
+          cards: deckCards,
+          commander,
+        })
+        // Save version snapshot (pro/premium only)
+        if (canUseVersioning) {
+          try {
+            await saveVersion(editingDeckId, deckCards, commander)
+          } catch (err) {
+            console.warn('Failed to save version:', err)
+          }
+        }
+        await refreshDecks()
+        alert('Deck updated!')
+      } else {
+        // Create new deck
+        const newId = await saveDeck({
+          name: deckName,
+          format: selectedFormat,
+          cards: deckCards,
+          commander,
+          isPublic: false,
+        })
+        setEditingDeckId(newId)
+        // Save initial version (pro/premium only)
+        if (canUseVersioning) {
+          try {
+            await saveVersion(newId, deckCards, commander)
+          } catch (err) {
+            console.warn('Failed to save initial version:', err)
+          }
+        }
+        alert('Deck saved!')
+      }
     } catch (error) {
       console.error('Error saving deck:', error)
       alert(error instanceof Error ? error.message : 'Failed to save deck. Please try again.')
     } finally {
       setIsSaving(false)
     }
+  }
+
+  // Load version history
+  const handleShowVersionHistory = async () => {
+    if (!editingDeckId) return
+    setShowVersionHistory(true)
+    setIsLoadingVersions(true)
+    try {
+      const versionList = await getVersions(editingDeckId)
+      setVersions(versionList)
+    } catch (err) {
+      console.error('Failed to load versions:', err)
+    } finally {
+      setIsLoadingVersions(false)
+    }
+  }
+
+  // Restore a version
+  const handleRestoreVersion = (version: DeckVersion) => {
+    if (!confirm(`Restore to version ${version.versionNumber}? This will replace your current deck.`)) return
+    const restoredCards = versionCardsToDeckCards(version.cards)
+    const restoredCommander = version.commander ? versionCardToDeckCard(version.commander) : null
+    setDeckCards(restoredCards)
+    setCommander(restoredCommander)
+    setShowVersionHistory(false)
+  }
+
+  // Format version date for display
+  const formatVersionDate = (isoDate: string) => {
+    const date = new Date(isoDate)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffMins = Math.floor(diffMs / 60000)
+    if (diffMins < 1) return 'Just now'
+    if (diffMins < 60) return `${diffMins}m ago`
+    const diffHours = Math.floor(diffMins / 60)
+    if (diffHours < 24) return `${diffHours}h ago`
+    const diffDays = Math.floor(diffHours / 24)
+    if (diffDays < 7) return `${diffDays}d ago`
+    return date.toLocaleDateString()
   }
 
   const handleExport = () => {
@@ -1098,6 +1181,11 @@ export default function DeckBuilder() {
         </div>
 
         <div className="right-actions">
+          {editingDeckId && canUseVersioning && (
+            <button type="button" className="btn btn-version" onClick={handleShowVersionHistory} title="View version history">
+              🕒 Versions
+            </button>
+          )}
           <button className="btn btn-secondary" onClick={handleLoad}>
             📂 Load
           </button>
@@ -1109,7 +1197,9 @@ export default function DeckBuilder() {
             onClick={handleSave}
             disabled={isSaving}
           >
-            {isSaving ? '💾 Saving...' : '💾 Save'}
+            {isSaving
+              ? (editingDeckId ? '💾 Updating...' : '💾 Saving...')
+              : (editingDeckId ? '💾 Update' : '💾 Save')}
           </button>
           <button className="btn btn-analyze" onClick={handleAnalyze}>
             📊 Analyze
@@ -1296,6 +1386,51 @@ export default function DeckBuilder() {
           onCardsScanned={handleScannedCards}
           selectedFormat={selectedFormat}
         />
+      )}
+
+      {/* Version History Modal */}
+      {showVersionHistory && (
+        <div className="modal-overlay" onClick={() => setShowVersionHistory(false)}>
+          <div className="modal-content version-history-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>🕒 Version History</h2>
+              <button type="button" className="modal-close" onClick={() => setShowVersionHistory(false)}>
+                ×
+              </button>
+            </div>
+            <div className="modal-body">
+              {isLoadingVersions ? (
+                <div className="version-loading">Loading versions...</div>
+              ) : versions.length === 0 ? (
+                <div className="version-empty">
+                  <p>No versions yet.</p>
+                  <p>Save your deck to create the first version snapshot.</p>
+                </div>
+              ) : (
+                <div className="version-list">
+                  {versions.map((v) => (
+                    <div key={v.id} className="version-item">
+                      <div className="version-info">
+                        <div className="version-header-row">
+                          <span className="version-number">v{v.versionNumber}</span>
+                          <span className="version-date">{formatVersionDate(v.savedAt)}</span>
+                        </div>
+                        <span className="version-cards">{v.cardCount} cards</span>
+                      </div>
+                      <button
+                        type="button"
+                        className="btn btn-small btn-restore"
+                        onClick={() => handleRestoreVersion(v)}
+                      >
+                        Restore
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
       )}
     </div>
   )

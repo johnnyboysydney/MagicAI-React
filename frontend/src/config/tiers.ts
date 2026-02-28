@@ -19,6 +19,8 @@ export type FeatureKey =
   | 'prioritySupport'
   | 'earlyAccess'
   | 'creditRollover'
+  | 'deckVersioning'
+  | 'advancedSearch'
 
 // Credit costs for AI features
 export const CREDIT_COSTS: Record<string, number> = {
@@ -53,6 +55,10 @@ export const FEATURE_ACCESS: Record<FeatureKey, SubscriptionTier[]> = {
   exportMTGA: ['pro', 'premium'],
   exportMoxfield: ['pro', 'premium'],
   publicSharing: ['pro', 'premium'],
+
+  // Pro and above (continued)
+  deckVersioning: ['pro', 'premium'],
+  advancedSearch: ['pro', 'premium'],
 
   // Premium only
   unlimitedDecks: ['premium'],
@@ -102,6 +108,8 @@ export const TIER_DEFINITIONS: Record<SubscriptionTier, TierDefinition> = {
       'AI deck generation',
       'Export to MTGA/Moxfield',
       'Public deck sharing',
+      'Deck version history',
+      'Advanced card search',
     ],
   },
   pro: {
@@ -120,6 +128,8 @@ export const TIER_DEFINITIONS: Record<SubscriptionTier, TierDefinition> = {
       'Export to MTGA/Moxfield',
       'Public deck sharing',
       'Camera scanner',
+      'Deck version history',
+      'Advanced card search',
     ],
   },
   premium: {
@@ -137,6 +147,8 @@ export const TIER_DEFINITIONS: Record<SubscriptionTier, TierDefinition> = {
       'Priority support',
       'Early access to features',
       'Credit rollover (max 150)',
+      'Deck version history',
+      'Advanced card search',
     ],
   },
 }

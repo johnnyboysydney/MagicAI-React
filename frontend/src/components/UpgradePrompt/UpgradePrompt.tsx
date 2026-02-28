@@ -27,6 +27,8 @@ const FEATURE_NAMES: Record<FeatureKey, string> = {
   prioritySupport: 'Priority Support',
   earlyAccess: 'Early Access to Features',
   creditRollover: 'Credit Rollover',
+  deckVersioning: 'Deck Version History',
+  advancedSearch: 'Advanced Card Search',
 }
 
 export function UpgradePrompt({

@@ -43,12 +43,23 @@ export default function SearchPanel({
 }: SearchPanelProps) {
   const [searchQuery, setSearchQuery] = useState('')
   const [showFilters, setShowFilters] = useState(false)
+  const [showAdvanced, setShowAdvanced] = useState(false)
 
-  // Filter state
+  // Basic filter state
   const [typeFilter, setTypeFilter] = useState('')
   const [rarityFilter, setRarityFilter] = useState('')
   const [isLegendary, setIsLegendary] = useState(false)
   const [colorFilters, setColorFilters] = useState<string[]>([])
+
+  // Advanced filter state
+  const [cmcMin, setCmcMin] = useState('')
+  const [cmcMax, setCmcMax] = useState('')
+  const [powerMin, setPowerMin] = useState('')
+  const [powerMax, setPowerMax] = useState('')
+  const [toughnessMin, setToughnessMin] = useState('')
+  const [toughnessMax, setToughnessMax] = useState('')
+  const [oracleText, setOracleText] = useState('')
+  const [setCode, setSetCode] = useState('')
 
   // Build filters object
   const filters: SearchFilters = {
@@ -57,6 +68,14 @@ export default function SearchPanel({
     isLegendary: isLegendary || undefined,
     colors: colorFilters.length > 0 ? colorFilters : undefined,
     format: selectedFormat !== 'all' ? selectedFormat : undefined,
+    cmcMin: cmcMin ? Number(cmcMin) : undefined,
+    cmcMax: cmcMax ? Number(cmcMax) : undefined,
+    powerMin: powerMin ? Number(powerMin) : undefined,
+    powerMax: powerMax ? Number(powerMax) : undefined,
+    toughnessMin: toughnessMin ? Number(toughnessMin) : undefined,
+    toughnessMax: toughnessMax ? Number(toughnessMax) : undefined,
+    oracleText: oracleText || undefined,
+    setCode: setCode || undefined,
   }
 
   const { cards, totalCards, isLoading, error } = useCardSearch(searchQuery, filters)
@@ -72,9 +91,22 @@ export default function SearchPanel({
     setRarityFilter('')
     setIsLegendary(false)
     setColorFilters([])
+    setCmcMin('')
+    setCmcMax('')
+    setPowerMin('')
+    setPowerMax('')
+    setToughnessMin('')
+    setToughnessMax('')
+    setOracleText('')
+    setSetCode('')
+    setShowAdvanced(false)
   }
 
-  const hasActiveFilters = typeFilter || rarityFilter || isLegendary || colorFilters.length > 0
+  const basicFilterCount = (typeFilter ? 1 : 0) + (rarityFilter ? 1 : 0) + (isLegendary ? 1 : 0) + colorFilters.length
+  const advancedFilterCount = (cmcMin ? 1 : 0) + (cmcMax ? 1 : 0) + (powerMin ? 1 : 0) + (powerMax ? 1 : 0) +
+    (toughnessMin ? 1 : 0) + (toughnessMax ? 1 : 0) + (oracleText ? 1 : 0) + (setCode ? 1 : 0)
+  const totalFilterCount = basicFilterCount + advancedFilterCount
+  const hasActiveFilters = totalFilterCount > 0
 
   // Hover preview state - tracks which card is hovered and where to show popup
   const [hoveredCard, setHoveredCard] = useState<HoveredCard | null>(null)
@@ -152,9 +184,7 @@ export default function SearchPanel({
           className={`filter-toggle-btn ${showFilters ? 'active' : ''}`}
           onClick={() => setShowFilters(!showFilters)}
         >
-          🔧 Filters {hasActiveFilters && <span className="filter-badge">{
-            (typeFilter ? 1 : 0) + (rarityFilter ? 1 : 0) + (isLegendary ? 1 : 0) + colorFilters.length
-          }</span>}
+          🔧 Filters {hasActiveFilters && <span className="filter-badge">{totalFilterCount}</span>}
         </button>
         {hasActiveFilters && (
           <button className="clear-filters-btn" onClick={clearFilters}>
@@ -228,6 +258,124 @@ export default function SearchPanel({
               ))}
             </div>
           </div>
+
+          {/* Advanced Filter Toggle */}
+          <button
+            type="button"
+            className={`advanced-toggle-btn ${showAdvanced ? 'active' : ''}`}
+            onClick={() => setShowAdvanced(!showAdvanced)}
+          >
+            {showAdvanced ? '▾' : '▸'} Advanced Filters
+            {advancedFilterCount > 0 && <span className="filter-badge">{advancedFilterCount}</span>}
+          </button>
+
+          {/* Advanced Filters */}
+          {showAdvanced && (
+            <div className="advanced-filters">
+              {/* Mana Value (CMC) Range */}
+              <div className="filter-row">
+                <label>Mana Value</label>
+                <div className="range-inputs">
+                  <input
+                    type="number"
+                    min="0"
+                    max="20"
+                    value={cmcMin}
+                    onChange={(e) => setCmcMin(e.target.value)}
+                    placeholder="Min"
+                    className="range-input"
+                  />
+                  <span className="range-separator">to</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="20"
+                    value={cmcMax}
+                    onChange={(e) => setCmcMax(e.target.value)}
+                    placeholder="Max"
+                    className="range-input"
+                  />
+                </div>
+              </div>
+
+              {/* Power Range */}
+              <div className="filter-row">
+                <label>Power</label>
+                <div className="range-inputs">
+                  <input
+                    type="number"
+                    min="0"
+                    max="99"
+                    value={powerMin}
+                    onChange={(e) => setPowerMin(e.target.value)}
+                    placeholder="Min"
+                    className="range-input"
+                  />
+                  <span className="range-separator">to</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="99"
+                    value={powerMax}
+                    onChange={(e) => setPowerMax(e.target.value)}
+                    placeholder="Max"
+                    className="range-input"
+                  />
+                </div>
+              </div>
+
+              {/* Toughness Range */}
+              <div className="filter-row">
+                <label>Toughness</label>
+                <div className="range-inputs">
+                  <input
+                    type="number"
+                    min="0"
+                    max="99"
+                    value={toughnessMin}
+                    onChange={(e) => setToughnessMin(e.target.value)}
+                    placeholder="Min"
+                    className="range-input"
+                  />
+                  <span className="range-separator">to</span>
+                  <input
+                    type="number"
+                    min="0"
+                    max="99"
+                    value={toughnessMax}
+                    onChange={(e) => setToughnessMax(e.target.value)}
+                    placeholder="Max"
+                    className="range-input"
+                  />
+                </div>
+              </div>
+
+              {/* Oracle Text */}
+              <div className="filter-row">
+                <label>Card Text</label>
+                <input
+                  type="text"
+                  value={oracleText}
+                  onChange={(e) => setOracleText(e.target.value)}
+                  placeholder='e.g. "draw a card", "flying"'
+                  className="filter-text-input"
+                />
+              </div>
+
+              {/* Set Code */}
+              <div className="filter-row">
+                <label>Set Code</label>
+                <input
+                  type="text"
+                  value={setCode}
+                  onChange={(e) => setSetCode(e.target.value)}
+                  placeholder="e.g. MKM, ONE, MH2"
+                  className="filter-text-input"
+                  maxLength={6}
+                />
+              </div>
+            </div>
+          )}
         </div>
       )}
 
@@ -258,7 +406,7 @@ export default function SearchPanel({
             </div>
           )}
 
-          {searchQuery.length < 2 && !isLoading && (
+          {searchQuery.length < 2 && !isLoading && !hasActiveFilters && (
             <div className="search-hint">
               Type at least 2 characters to search
             </div>

@@ -203,6 +203,7 @@ export default function Collection() {
       selectedFormat: format,
       deckCards,
       commander: null,
+      editingDeckId: null,
     })
 
     setShowAiBuildModal(false)

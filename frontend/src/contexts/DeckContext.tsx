@@ -43,6 +43,7 @@ export interface DeckBuilderState {
   selectedFormat: string
   deckCards: Map<string, DeckCard>
   commander: DeckCard | null
+  editingDeckId: string | null
 }
 
 interface DeckContextType {
@@ -155,6 +156,7 @@ const DEFAULT_BUILDER_STATE: DeckBuilderState = {
   selectedFormat: 'standard',
   deckCards: new Map(),
   commander: null,
+  editingDeckId: null,
 }
 
 export function DeckProvider({ children }: { children: ReactNode }) {

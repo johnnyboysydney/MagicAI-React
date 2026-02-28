@@ -297,6 +297,10 @@ export default function Profile() {
               <span className="link-icon">🎴</span>
               <span>My Decks</span>
             </Link>
+            <Link to="/collection" className="quick-link">
+              <span className="link-icon">📦</span>
+              <span>My Collection</span>
+            </Link>
             <Link to="/account#customize" className="quick-link">
               <span className="link-icon">🎨</span>
               <span>Customize Profile</span>

@@ -11,6 +11,7 @@ import Profile from './pages/Profile/Profile'
 import Account from './pages/Account/Account'
 import Login from './pages/Auth/Login'
 import Signup from './pages/Auth/Signup'
+import Collection from './pages/Collection/Collection'
 import Admin from './pages/Admin/Admin'
 import './App.css'
 
@@ -53,6 +54,7 @@ function Navigation() {
           <>
             <Link to="/deck-builder">Deck Builder</Link>
             <Link to="/my-decks">My Decks</Link>
+            <Link to="/collection">Collection</Link>
             <Link to="/public-decks">Explore</Link>
             <div className="user-menu">
               <button className="user-menu-trigger">
@@ -152,6 +154,14 @@ function AppContent() {
             element={
               <ProtectedRoute>
                 <MyDecks />
+              </ProtectedRoute>
+            }
+          />
+          <Route
+            path="/collection"
+            element={
+              <ProtectedRoute>
+                <Collection />
               </ProtectedRoute>
             }
           />

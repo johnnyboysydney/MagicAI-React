@@ -32,6 +32,13 @@ const QUICK_ACTIONS = [
     color: '#f59e0b',
   },
   {
+    title: 'My Collection',
+    subtitle: 'Track your cards',
+    icon: '📦',
+    action: '/collection',
+    color: '#06b6d4',
+  },
+  {
     title: 'Explore',
     subtitle: 'Public decks',
     icon: '🌍',

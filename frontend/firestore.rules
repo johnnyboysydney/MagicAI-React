@@ -17,6 +17,13 @@ service cloud.firestore {
       allow update: if request.auth != null && request.auth.uid == userId;
       // Users cannot delete their profile
       allow delete: if false;
+
+      // Collection subcollection - users can manage their own card collection
+      match /collection/{cardId} {
+        allow read: if request.auth != null && request.auth.uid == userId;
+        allow create, update: if request.auth != null && request.auth.uid == userId;
+        allow delete: if request.auth != null && request.auth.uid == userId;
+      }
     }
 
     // Decks collection

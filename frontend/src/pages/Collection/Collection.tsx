@@ -6,6 +6,7 @@ import { useAuth } from '../../contexts/AuthContext'
 import { useDeck } from '../../contexts/DeckContext'
 import type { ScryfallCard, DeckCard } from '../../types/card'
 import { getCardImageUrl, getCardPrice } from '../../types/card'
+import { fetchCardByName } from '../../services/deckGenerator'
 import {
   type CardCondition,
   type CollectionCard as CollectionCardType,
@@ -115,7 +116,7 @@ export default function Collection() {
   const detailCard = showCardDetail ? filteredCards.find((c) => c.scryfallId === showCardDetail) : null
 
   // Open AI-generated deck in the Deck Builder
-  const handleOpenInDeckBuilder = useCallback((
+  const handleOpenInDeckBuilder = useCallback(async (
     generatedCards: Array<{ name: string; quantity: number }>,
     format: string,
     _strategy: string,
@@ -129,44 +130,69 @@ export default function Collection() {
         (c) => c.name.toLowerCase() === gc.name.toLowerCase()
       )
 
-      // Build scryfallData with image_uris from collection card's imageUri
-      const imageUri = collectionCard?.imageUri || ''
-      const scryfallData = {
-        id: collectionCard?.scryfallId || '',
-        name: gc.name,
-        mana_cost: collectionCard?.manaCost || '',
-        cmc: collectionCard?.cmc || 0,
-        type_line: collectionCard?.typeLine || '',
-        oracle_text: collectionCard?.oracleText || '',
-        colors: collectionCard?.colors || [],
-        color_identity: collectionCard?.colorIdentity || [],
-        set: collectionCard?.setCode || '',
-        set_name: collectionCard?.setName || '',
-        rarity: collectionCard?.rarity || 'common',
-        prices: {
-          usd: String(collectionCard?.price || 0),
-          usd_foil: String(collectionCard?.foilPrice || 0),
-        },
-        image_uris: {
-          small: imageUri.replace('/normal/', '/small/'),
-          normal: imageUri,
-          large: imageUri.replace('/normal/', '/large/'),
-          art_crop: imageUri.replace('/normal/', '/art_crop/'),
-        },
-        scryfall_uri: `https://scryfall.com/card/${collectionCard?.setCode || ''}`,
-        legalities: collectionCard?.legalities || {},
-      } as ScryfallCard
+      let scryfallData: ScryfallCard
+
+      if (collectionCard) {
+        // Card is in collection — build scryfallData from collection data
+        const imageUri = collectionCard.imageUri || ''
+        scryfallData = {
+          id: collectionCard.scryfallId,
+          name: gc.name,
+          mana_cost: collectionCard.manaCost || '',
+          cmc: collectionCard.cmc || 0,
+          type_line: collectionCard.typeLine || '',
+          oracle_text: collectionCard.oracleText || '',
+          colors: collectionCard.colors || [],
+          color_identity: collectionCard.colorIdentity || [],
+          set: collectionCard.setCode || '',
+          set_name: collectionCard.setName || '',
+          rarity: collectionCard.rarity || 'common',
+          prices: {
+            usd: String(collectionCard.price || 0),
+            usd_foil: String(collectionCard.foilPrice || 0),
+          },
+          image_uris: {
+            small: imageUri.replace('/normal/', '/small/'),
+            normal: imageUri,
+            large: imageUri.replace('/normal/', '/large/'),
+            art_crop: imageUri.replace('/normal/', '/art_crop/'),
+          },
+          scryfall_uri: `https://scryfall.com/card/${collectionCard.setCode || ''}`,
+          legalities: collectionCard.legalities || {},
+        } as ScryfallCard
+      } else {
+        // Card NOT in collection (e.g. basic lands added by AI) — fetch from Scryfall
+        const fetched = await fetchCardByName(gc.name)
+        if (fetched) {
+          scryfallData = fetched
+        } else {
+          // Fallback: minimal data if Scryfall lookup also fails
+          scryfallData = {
+            id: gc.name.toLowerCase().replace(/\s+/g, '-'),
+            name: gc.name,
+            cmc: 0,
+            type_line: '',
+            colors: [],
+            color_identity: [],
+            set: '',
+            set_name: '',
+            rarity: 'common',
+            prices: { usd: '0' },
+            legalities: {},
+          } as ScryfallCard
+        }
+      }
 
       const deckCard: DeckCard = {
-        id: collectionCard?.scryfallId || gc.name.toLowerCase().replace(/\s+/g, '-'),
+        id: scryfallData.id || gc.name.toLowerCase().replace(/\s+/g, '-'),
         name: gc.name,
         quantity: gc.quantity,
         scryfallData,
-        cardType: (collectionCard?.cardType || 'other') as DeckCard['cardType'],
-        cmc: collectionCard?.cmc || 0,
-        colors: collectionCard?.colors || [],
-        manaCost: collectionCard?.manaCost || '',
-        price: collectionCard?.price || 0,
+        cardType: (collectionCard?.cardType || scryfallData.type_line?.split(' ')[0]?.toLowerCase() || 'other') as DeckCard['cardType'],
+        cmc: collectionCard?.cmc || scryfallData.cmc || 0,
+        colors: collectionCard?.colors || scryfallData.colors || [],
+        manaCost: collectionCard?.manaCost || scryfallData.mana_cost || '',
+        price: collectionCard?.price || parseFloat(scryfallData.prices?.usd || '0') || 0,
       }
 
       deckCards.set(gc.name, deckCard)
@@ -431,6 +457,57 @@ export default function Collection() {
 
         {/* Stats sidebar */}
         <div className="collection-sidebar">
+          {/* AI Smart Deck Builder — top of sidebar for premium visibility */}
+          <div className="sidebar-card ai-build-card">
+            <div className="ai-build-header">
+              <div className="ai-build-badge">AI</div>
+              <h3>Smart Deck Builder</h3>
+              <div className="ai-info-tooltip">
+                <span className="ai-info-icon">i</span>
+                <div className="ai-info-popup">
+                  <strong>How it works</strong>
+                  <p>Our AI analyzes every card in your collection and builds an optimized deck tailored to your chosen format and strategy.</p>
+                  <ul>
+                    <li>Respects format legality rules</li>
+                    <li>Builds a balanced mana curve</li>
+                    <li>Uses only cards you own</li>
+                    <li>Explains the strategy behind each build</li>
+                  </ul>
+                  <span className="ai-info-cost">10 credits per generation</span>
+                </div>
+              </div>
+            </div>
+            <p className="ai-build-desc">
+              {stats.uniqueCards >= 2
+                ? `AI analyzes your ${stats.uniqueCards} cards and crafts an optimized deck for any format.`
+                : 'Add at least 2 cards to your collection and let AI craft an optimized deck for any format.'}
+            </p>
+            <div className="ai-format-tags">
+              <span className="ai-format-tag">Standard</span>
+              <span className="ai-format-tag">Modern</span>
+              <span className="ai-format-tag">Pioneer</span>
+              <span className="ai-format-tag">Commander</span>
+              <span className="ai-format-tag">+3</span>
+            </div>
+            {stats.uniqueCards < 2 && (
+              <p className="ai-min-cards-note">
+                You need at least 2 cards in your collection to use AI deck building.
+              </p>
+            )}
+            <button
+              className="btn btn-ai-build"
+              onClick={() => setShowAiBuildModal(true)}
+              disabled={stats.uniqueCards < 2}
+            >
+              <span className="ai-btn-icon">&#9733;</span>
+              Build Deck from Collection
+            </button>
+            <div className="ai-cost-row">
+              <span className="ai-cost-hint">10 credits per build</span>
+              <span className="ai-credits-remaining">{user?.credits ?? 0} available</span>
+            </div>
+          </div>
+
           <div className="sidebar-card">
             <h3>Collection Stats</h3>
             <div className="stat-rows">
@@ -507,56 +584,6 @@ export default function Collection() {
               </div>
             </div>
           )}
-
-          <div className="sidebar-card ai-build-card">
-            <div className="ai-build-header">
-              <div className="ai-build-badge">AI</div>
-              <h3>Smart Deck Builder</h3>
-              <div className="ai-info-tooltip">
-                <span className="ai-info-icon">i</span>
-                <div className="ai-info-popup">
-                  <strong>How it works</strong>
-                  <p>Our AI analyzes every card in your collection and builds an optimized deck tailored to your chosen format and strategy.</p>
-                  <ul>
-                    <li>Respects format legality rules</li>
-                    <li>Builds a balanced mana curve</li>
-                    <li>Uses only cards you own</li>
-                    <li>Explains the strategy behind each build</li>
-                  </ul>
-                  <span className="ai-info-cost">10 credits per generation</span>
-                </div>
-              </div>
-            </div>
-            <p className="ai-build-desc">
-              {stats.uniqueCards >= 2
-                ? `AI analyzes your ${stats.uniqueCards} cards and crafts an optimized deck for any format.`
-                : 'Add at least 2 cards to your collection and let AI craft an optimized deck for any format.'}
-            </p>
-            <div className="ai-format-tags">
-              <span className="ai-format-tag">Standard</span>
-              <span className="ai-format-tag">Modern</span>
-              <span className="ai-format-tag">Pioneer</span>
-              <span className="ai-format-tag">Commander</span>
-              <span className="ai-format-tag">+3</span>
-            </div>
-            {stats.uniqueCards < 2 && (
-              <p className="ai-min-cards-note">
-                You need at least 2 cards in your collection to use AI deck building.
-              </p>
-            )}
-            <button
-              className="btn btn-ai-build"
-              onClick={() => setShowAiBuildModal(true)}
-              disabled={stats.uniqueCards < 2}
-            >
-              <span className="ai-btn-icon">&#9733;</span>
-              Build Deck from Collection
-            </button>
-            <div className="ai-cost-row">
-              <span className="ai-cost-hint">10 credits per build</span>
-              <span className="ai-credits-remaining">{user?.credits ?? 0} available</span>
-            </div>
-          </div>
 
           <div className="collection-results-count">
             Showing {filteredCards.length} of {stats.uniqueCards} cards
@@ -868,13 +895,15 @@ function AiBuildModal({
   userCredits: number
   onClose: () => void
   onUseCredits: (amount: number) => Promise<void>
-  onOpenInDeckBuilder: (cards: Array<{ name: string; quantity: number }>, format: string, strategy: string) => void
+  onOpenInDeckBuilder: (cards: Array<{ name: string; quantity: number }>, format: string, strategy: string) => void | Promise<void>
 }) {
   const [format, setFormat] = useState('standard')
   const [archetype, setArchetype] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
   const [result, setResult] = useState<{ strategy: string; cards: Array<{ name: string; quantity: number }> } | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const [copied, setCopied] = useState(false)
+  const [isOpeningBuilder, setIsOpeningBuilder] = useState(false)
 
   const handleGenerate = async () => {
     if (userCredits < 10) {
@@ -1058,18 +1087,25 @@ Return ONLY the JSON, no other text.`
               </button>
               <button
                 className="btn btn-secondary"
+                title="Copies the deck list to your clipboard for use in other apps"
                 onClick={() => {
                   const deckText = result.cards.map((c) => `${c.quantity} ${c.name}`).join('\n')
                   navigator.clipboard.writeText(deckText)
+                  setCopied(true)
+                  setTimeout(() => setCopied(false), 2000)
                 }}
               >
-                Copy List
+                {copied ? 'Copied to Clipboard!' : 'Export to Clipboard'}
               </button>
               <button
                 className="btn btn-primary"
-                onClick={() => onOpenInDeckBuilder(result.cards, format, result.strategy)}
+                disabled={isOpeningBuilder}
+                onClick={async () => {
+                  setIsOpeningBuilder(true)
+                  await onOpenInDeckBuilder(result.cards, format, result.strategy)
+                }}
               >
-                Open in Deck Builder
+                {isOpeningBuilder ? 'Loading cards...' : 'Open in Deck Builder'}
               </button>
             </div>
           </div>

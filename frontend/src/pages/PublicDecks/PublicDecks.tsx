@@ -1,8 +1,10 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useDeck } from '../../contexts/DeckContext'
 import type { Deck } from '../../contexts/DeckContext'
+import { useAuth } from '../../contexts/AuthContext'
 import { getPublicDecks, firestoreDeckToAppDeck } from '../../services/deckService'
+import { toggleLike, getUserLikedDecks } from '../../services/socialService'
 import './PublicDecks.css'
 
 type SortOption = 'popular' | 'recent' | 'name' | 'format'
@@ -11,10 +13,12 @@ type FilterFormat = 'all' | 'standard' | 'modern' | 'commander' | 'pioneer' | 'l
 export default function PublicDecks() {
   const navigate = useNavigate()
   const { setDeckForAnalysis } = useDeck()
+  const { user } = useAuth()
 
   const [decks, setDecks] = useState<Deck[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [likedDecks, setLikedDecks] = useState<Set<string>>(new Set())
 
   const [searchQuery, setSearchQuery] = useState('')
   const [sortBy, setSortBy] = useState<SortOption>('recent')
@@ -29,6 +33,13 @@ export default function PublicDecks() {
         const firestoreDecks = await getPublicDecks(50)
         const appDecks = firestoreDecks.map(firestoreDeckToAppDeck)
         setDecks(appDecks)
+
+        // Check which decks the user has liked
+        if (user && appDecks.length > 0) {
+          const deckIds = appDecks.map((d) => d.id)
+          const liked = await getUserLikedDecks(deckIds, user.uid)
+          setLikedDecks(liked)
+        }
       } catch (err) {
         console.error('Failed to load public decks:', err)
         setError('Failed to load public decks')
@@ -37,7 +48,7 @@ export default function PublicDecks() {
       }
     }
     loadPublicDecks()
-  }, [])
+  }, [user])
 
   // Filter and sort decks
   const filteredDecks = useMemo(() => {
@@ -83,6 +94,47 @@ export default function PublicDecks() {
     setDeckForAnalysis(deck.name, deck.format, deck.cards, deck.commander)
     navigate('/analysis')
   }
+
+  const handleLike = useCallback(async (e: React.MouseEvent, deckId: string) => {
+    e.stopPropagation()
+    if (!user) return
+
+    // Optimistic UI update
+    const wasLiked = likedDecks.has(deckId)
+    setLikedDecks((prev) => {
+      const next = new Set(prev)
+      if (wasLiked) next.delete(deckId)
+      else next.add(deckId)
+      return next
+    })
+    setDecks((prev) =>
+      prev.map((d) =>
+        d.id === deckId
+          ? { ...d, likeCount: (d.likeCount || 0) + (wasLiked ? -1 : 1) }
+          : d
+      )
+    )
+
+    try {
+      await toggleLike(deckId, user.uid)
+    } catch (err) {
+      console.error('Failed to toggle like:', err)
+      // Revert on error
+      setLikedDecks((prev) => {
+        const next = new Set(prev)
+        if (wasLiked) next.add(deckId)
+        else next.delete(deckId)
+        return next
+      })
+      setDecks((prev) =>
+        prev.map((d) =>
+          d.id === deckId
+            ? { ...d, likeCount: (d.likeCount || 0) + (wasLiked ? 1 : -1) }
+            : d
+        )
+      )
+    }
+  }, [user, likedDecks])
 
   const formatDate = (dateString: string) => {
     const date = new Date(dateString)
@@ -224,10 +276,16 @@ export default function PublicDecks() {
                   </div>
                 </div>
                 <div className="deck-stats">
-                  <span className="stat likes">
-                    <span className="stat-icon">&#10084;&#65039;</span>
+                  <button
+                    type="button"
+                    className={`stat likes ${likedDecks.has(deck.id) ? 'liked' : ''}`}
+                    onClick={(e) => handleLike(e, deck.id)}
+                    disabled={!user}
+                    title={user ? (likedDecks.has(deck.id) ? 'Unlike' : 'Like') : 'Sign in to like'}
+                  >
+                    <span className="stat-icon">{likedDecks.has(deck.id) ? '\u2764\uFE0F' : '\u2661'}</span>
                     {formatNumber(deck.likeCount || 0)}
-                  </span>
+                  </button>
                   <span className="stat views">
                     <span className="stat-icon">&#128065;&#65039;</span>
                     {formatNumber(deck.viewCount || 0)}

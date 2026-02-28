@@ -180,14 +180,13 @@ export function generateDeckPrompt(request: DeckGenerationRequest): string {
 
   let prompt = `Generate a competitive, legal ${rules.name} Magic: The Gathering deck.
 
-FORMAT RULES (MUST follow strictly):
-- Deck size: EXACTLY ${rules.minDeckSize} cards${rules.hasCommander ? ' (including commander)' : ''}
+FORMAT RULES:
+- Deck size: ${rules.minDeckSize} cards (not fewer)
 - Maximum copies per card: ${rules.maxCopies} (except basic lands)
-- You MUST include exactly ${rules.recommendedLands} lands (mana-producing lands, not spells)
-${rules.hasCommander ? `- COMMANDER: You MUST include a legendary creature as commander. The commander MUST have the type "Legendary Creature". Artifacts, enchantments, or other non-creature cards cannot be commanders unless they explicitly say they can be.
-- Commander format is SINGLETON: every non-basic-land card can only have 1 copy
-- The deck must have exactly 99 cards + 1 commander = 100 total` : ''}
+- Include ${rules.recommendedLands} lands
+${rules.hasCommander ? `- This is Commander/EDH: 1 legendary creature commander + 99 other cards = 100 total. Singleton (1 copy of each non-basic land). Commander must be a Legendary Creature.` : ''}
 ${rules.hasSideboard ? `- Include a ${rules.sideboardSize}-card sideboard` : ''}
+- ALL cards must be legal in ${rules.name}. No banned cards (e.g. Mana Crypt, Nadu, Grief).
 
 DECK REQUIREMENTS:
 - Archetype: ${archetype}
@@ -226,29 +225,17 @@ DECK REQUIREMENTS:
   }
 
   prompt += `
-IMPORTANT LEGALITY RULES:
-- ALL cards must be currently legal in ${rules.name} format
-- Do NOT include any banned or restricted cards
-- Do NOT include cards that have been recently banned (e.g., Mana Crypt, Nadu Winged Wisdom, Grief, etc.)
-- If unsure about a card's legality, choose a safe alternative
-
-DECK BALANCE GUIDELINES:
-- LANDS ARE MANDATORY: Include ${rules.recommendedLands} lands. Use dual lands, fetch lands, and utility lands appropriate for the format and colors.${rules.hasCommander ? ' For a 5-color deck use Command Tower, City of Brass, Mana Confluence, shock lands, fetch lands, and triomes.' : ''}
-- Include enough card draw/filtering (3-6 cards${rules.hasCommander ? ', 8-12 for Commander' : ''})
-- Include removal spells appropriate to the format (4-8 cards${rules.hasCommander ? ', 8-12 for Commander' : ''})
-- Include mana acceleration/ramp (${rules.hasCommander ? '10-15 sources including Sol Ring, signets, and land ramp spells' : '0-4 sources'})
-- Ensure deck has a clear win condition
-- Cards should synergize with the chosen strategy
+DECK BALANCE:
+- Ensure proper mana base with ${rules.recommendedLands} lands (dual lands, fetch lands, utility lands as appropriate)
+- Include card draw, removal, and synergistic cards for the strategy
+${rules.hasCommander ? '- Include ramp: Sol Ring, signets, Cultivate, etc.' : ''}
 
 OUTPUT FORMAT:
-${rules.hasCommander ? `Start with "Commander" section header, then the commander card on its own line.
-Then list the remaining 99 cards grouped by type.` : 'Return the deck as a list with each line in format: "QUANTITY CARDNAME"'}
-Group cards by type (Creatures, Instants, Sorceries, Enchantments, Artifacts, Planeswalkers, Lands)
-Include section headers. The "Lands" section MUST be present with ${rules.recommendedLands} land cards.
+Each card line: "QUANTITY CARDNAME" (e.g. "4 Lightning Bolt" or "1 Sol Ring")
+${rules.hasCommander ? 'First line: "1 COMMANDER_NAME" marked under a "Commander" header.' : ''}
+Group by type: Creatures, Instants, Sorceries, Enchantments, Artifacts, Planeswalkers, Lands.
 ${rules.hasSideboard ? 'Include a "Sideboard" section at the end.' : ''}
-Each card line format: "QUANTITY CARDNAME" (e.g. "1 Sol Ring" or "4 Lightning Bolt")
-
-CRITICAL: The total card count MUST equal exactly ${rules.minDeckSize}. Count your cards before responding. Do not output fewer cards.`
+Include all ${rules.recommendedLands} lands in a "Lands" section. Output the complete ${rules.minDeckSize}-card deck.`
 
   return prompt
 }
@@ -297,7 +284,19 @@ export function parseAIDeckResponse(response: string): ParsedDeck {
     if (lower.includes('sideboard')) {
       currentSection = 'sideboard'
     } else if (lower.includes('commander')) {
-      currentSection = 'commander'
+      // Try to extract an inline commander name: "Commander: Card Name" or "Commander - Card Name"
+      const inlineMatch = trimmed.match(/commander\s*[:\-–—]\s*(.+)/i)
+      if (inlineMatch) {
+        const name = inlineMatch[1].replace(/\*+/g, '').trim()
+        if (name && name.length > 1) {
+          commander = name
+          currentSection = 'main'
+        } else {
+          currentSection = 'commander'
+        }
+      } else {
+        currentSection = 'commander'
+      }
     }
     // Other section headers (Creatures, Lands, etc.) don't change the section,
     // so we just skip them implicitly
@@ -444,8 +443,8 @@ export async function generateDeckWithAI(
             },
           ],
           generationConfig: {
-            temperature: 0.7,
-            maxOutputTokens: 4096,
+            temperature: 0.6,
+            maxOutputTokens: 8192,
           },
         }),
       }
@@ -465,15 +464,23 @@ export async function generateDeckWithAI(
 
     onProgress?.('Parsing AI response...')
 
+    // Log raw AI output for debugging
+    console.log('=== AI RAW OUTPUT ===')
+    console.log(generatedText)
+    console.log('=== END AI OUTPUT ===')
+
     const parsedDeck = parseAIDeckResponse(generatedText)
 
-    // Validate we got enough cards
+    // Log parsed results
     const totalCards = parsedDeck.mainboard.reduce((sum, c) => sum + c.quantity, 0)
+    const sideboardTotal = parsedDeck.sideboard.reduce((sum, c) => sum + c.quantity, 0)
     const rules = FORMAT_RULES[request.format] || FORMAT_RULES.standard
+
+    console.log(`Parsed: ${totalCards} mainboard, ${sideboardTotal} sideboard, commander: ${parsedDeck.commander || 'none'}`)
+    console.log(`Expected: ${rules.minDeckSize} mainboard cards`)
 
     if (totalCards < rules.minDeckSize * 0.8) {
       console.warn(`AI generated only ${totalCards} cards, expected at least ${rules.minDeckSize}`)
-      // Could retry here, but for now just proceed
     }
 
     return parsedDeck

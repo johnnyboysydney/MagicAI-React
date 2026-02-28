@@ -56,9 +56,17 @@ function Navigation() {
             <Link to="/public-decks">Explore</Link>
             <div className="user-menu">
               <button className="user-menu-trigger">
-                <span className="user-avatar">
-                  {user?.displayName?.charAt(0).toUpperCase() || 'U'}
-                </span>
+                {user?.profileCustomization?.customAvatarUrl || user?.photoURL ? (
+                  <img
+                    src={user?.profileCustomization?.customAvatarUrl || user?.photoURL || ''}
+                    alt="Avatar"
+                    className="user-avatar user-avatar-img"
+                  />
+                ) : (
+                  <span className="user-avatar">
+                    {user?.displayName?.charAt(0).toUpperCase() || 'U'}
+                  </span>
+                )}
                 <span className="user-name">{user?.displayName}</span>
               </button>
               <div className="user-dropdown">

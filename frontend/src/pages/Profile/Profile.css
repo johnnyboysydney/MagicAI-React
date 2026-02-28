@@ -363,8 +363,29 @@
   font-size: 1.1rem;
 }
 
+/* Hidden file input */
+.hidden-file-input {
+  display: none;
+}
+
+/* Avatar emoji large for profile page */
+.avatar-emoji-large {
+  font-size: 3rem;
+}
+
+/* Bottom grid layout */
+.profile-bottom-grid {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.5rem;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
+  .profile-bottom-grid {
+    grid-template-columns: 1fr;
+  }
   .profile-content {
     grid-template-columns: 1fr;
   }

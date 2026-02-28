@@ -523,6 +523,50 @@ export default function DeckBuilder() {
         }
       }
 
+      // Auto-fill with basic lands if deck is short
+      const rules = FORMAT_RULES[selectedFormat] || FORMAT_RULES.standard
+      let currentTotal = Array.from(newDeckCards.values()).reduce((sum, c) => sum + c.quantity, 0)
+      if (isCommanderFormat && aiCommander) currentTotal += 1 // Count commander
+      const shortage = rules.minDeckSize - currentTotal
+
+      if (shortage > 0) {
+        console.log(`Deck is ${shortage} cards short. Auto-filling with basic lands.`)
+        // Determine which basic lands to add based on deck colors
+        const deckColors = new Set<string>()
+        newDeckCards.forEach((card) => {
+          card.colors.forEach((c) => deckColors.add(c))
+        })
+        const colorToBasic: Record<string, string> = {
+          W: 'Plains', U: 'Island', B: 'Swamp', R: 'Mountain', G: 'Forest',
+        }
+        const basics = Array.from(deckColors)
+          .map((c) => colorToBasic[c])
+          .filter(Boolean)
+        if (basics.length === 0) basics.push('Forest', 'Island') // fallback
+
+        // Distribute shortage across basic land types
+        const perBasic = Math.floor(shortage / basics.length)
+        const remainder = shortage % basics.length
+
+        for (let i = 0; i < basics.length; i++) {
+          const landName = basics[i]
+          const qty = perBasic + (i < remainder ? 1 : 0)
+          if (qty <= 0) continue
+
+          // Add to existing basic land entry or create new one
+          const existing = newDeckCards.get(landName)
+          if (existing) {
+            existing.quantity += qty
+          } else {
+            const landCard = await fetchCardByName(landName)
+            if (landCard) {
+              newDeckCards.set(landName, scryfallToDeckCard(landCard, qty))
+            }
+          }
+        }
+        warnings.push(`Added ${shortage} basic lands to reach ${rules.minDeckSize} cards`)
+      }
+
       setDeckCards(newDeckCards)
 
       // Collect warnings for cards that failed or were banned

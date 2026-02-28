@@ -496,6 +496,7 @@ export default function DeckBuilder() {
       // Build the deck map, filtering out banned cards
       const newDeckCards = new Map<string, DeckCard>()
       const bannedCards: string[] = []
+      const warnings: string[] = []
 
       for (const { quantity, card } of mainboard) {
         if (card) {
@@ -509,15 +510,22 @@ export default function DeckBuilder() {
         }
       }
 
-      // Set commander if AI suggested one
+      // Set commander if AI suggested one — validate it's a legendary creature
       if (aiCommander && isCommanderFormat) {
-        setCommander(scryfallToDeckCard(aiCommander, 1))
+        const typeLine = aiCommander.type_line?.toLowerCase() || ''
+        if (typeLine.includes('legendary') && typeLine.includes('creature')) {
+          setCommander(scryfallToDeckCard(aiCommander, 1))
+        } else {
+          // AI picked a non-legendary-creature as commander, add it to the deck instead
+          console.warn(`AI suggested "${aiCommander.name}" as commander but it's not a legendary creature (${aiCommander.type_line}). Adding to mainboard instead.`)
+          newDeckCards.set(aiCommander.name, scryfallToDeckCard(aiCommander, 1))
+          warnings.push(`"${aiCommander.name}" is not a legendary creature — moved to mainboard`)
+        }
       }
 
       setDeckCards(newDeckCards)
 
-      // Show warning if some cards failed or were banned
-      const warnings: string[] = []
+      // Collect warnings for cards that failed or were banned
       if (failedCards.length > 0) {
         console.warn('Failed to fetch cards:', failedCards)
         warnings.push(`${failedCards.length} cards not found`)

@@ -120,9 +120,11 @@ export default function Collection() {
     generatedCards: Array<{ name: string; quantity: number }>,
     format: string,
     _strategy: string,
+    commanderName?: string,
   ) => {
     // Convert AI result to DeckCard Map, matching collection cards where possible
     const deckCards = new Map<string, DeckCard>()
+    let commanderCard: DeckCard | null = null
 
     for (const gc of generatedCards) {
       // Try to find the card in the user's collection for full data
@@ -195,14 +197,19 @@ export default function Collection() {
         price: collectionCard?.price || parseFloat(scryfallData.prices?.usd || '0') || 0,
       }
 
-      deckCards.set(gc.name, deckCard)
+      // Check if this card is the commander
+      if (commanderName && gc.name.toLowerCase() === commanderName.toLowerCase()) {
+        commanderCard = deckCard
+      } else {
+        deckCards.set(gc.name, deckCard)
+      }
     }
 
     setBuilderState({
       deckName: `AI ${format.charAt(0).toUpperCase() + format.slice(1)} Deck`,
       selectedFormat: format,
       deckCards,
-      commander: null,
+      commander: commanderCard,
       editingDeckId: null,
     })
 
@@ -896,12 +903,12 @@ function AiBuildModal({
   userCredits: number
   onClose: () => void
   onUseCredits: (amount: number) => Promise<void>
-  onOpenInDeckBuilder: (cards: Array<{ name: string; quantity: number }>, format: string, strategy: string) => void | Promise<void>
+  onOpenInDeckBuilder: (cards: Array<{ name: string; quantity: number }>, format: string, strategy: string, commander?: string) => void | Promise<void>
 }) {
   const [format, setFormat] = useState('standard')
   const [archetype, setArchetype] = useState('')
   const [isGenerating, setIsGenerating] = useState(false)
-  const [result, setResult] = useState<{ strategy: string; cards: Array<{ name: string; quantity: number }> } | null>(null)
+  const [result, setResult] = useState<{ strategy: string; cards: Array<{ name: string; quantity: number }>; commander?: string } | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
   const [isOpeningBuilder, setIsOpeningBuilder] = useState(false)
@@ -936,33 +943,47 @@ function AiBuildModal({
         .map((c) => `${c.quantity + c.foilQuantity}x ${c.name}`)
         .join('\n')
 
-      const deckSize = format === 'commander' ? 100 : 60
+      const isCommander = format === 'commander'
+      const deckSize = isCommander ? 100 : 60
+      const landCount = isCommander ? 37 : 24
       const archetypeHint = archetype ? `\nFocus on a ${archetype} strategy if possible.` : ''
+
+      const commanderRules = isCommander ? `
+COMMANDER RULES (MUST follow strictly):
+- The deck must have exactly 1 commander + 99 other cards = 100 total.
+- The commander MUST be a Legendary Creature from the list (type line must include "Legendary Creature").
+- Singleton format: maximum 1 copy of every non-basic-land card.
+- All cards must be within the commander's color identity.
+- Include the commander as a separate entry in the output.` : ''
 
       const prompt = `You are a Magic: The Gathering deck building expert.
 The user owns these cards:
 ${cardList}
 
 Build the best possible ${format} deck using ONLY cards from this list.
-The deck must contain exactly ${deckSize} cards including lands.
-Respect ${format} format legality and the ${format === 'commander' ? 'singleton (max 1 copy)' : 'max 4 copies'} rule.${archetypeHint}
+The deck must contain EXACTLY ${deckSize} cards${isCommander ? ' (including the commander)' : ''}.
+Maximum copies: ${isCommander ? '1 copy of each card (singleton)' : 'up to 4 copies'} except basic lands.${archetypeHint}
+${commanderRules}
+MANDATORY LAND REQUIREMENT:
+- You MUST include approximately ${landCount} lands in the deck.
+- Use lands from the user's collection. Add basic lands (Plains, Island, Swamp, Mountain, Forest) as needed to reach ${landCount} lands.
+- A deck without enough lands cannot function.
 
-IMPORTANT LEGALITY RULES:
-- Do NOT include any cards that are banned or restricted in ${format} format.
-- Skip any banned cards from the user's collection (e.g., Mana Crypt, Nadu Winged Wisdom, Grief, etc.).
+LEGALITY RULES:
+- Do NOT include any cards that are banned in ${format} format.
 - ALL cards in the deck must be currently legal in ${format}.
 
 Return your response in this exact JSON format:
 {
-  "strategy": "2-3 sentence explanation of the deck strategy",
+  "strategy": "2-3 sentence explanation of the deck strategy",${isCommander ? '\n  "commander": "Commander Card Name",' : ''}
   "cards": [
-    {"name": "Card Name", "quantity": 4},
-    {"name": "Another Card", "quantity": 2}
+    {"name": "Card Name", "quantity": ${isCommander ? 1 : 4}},
+    {"name": "Another Card", "quantity": ${isCommander ? 1 : 2}}
   ]
 }
 
-IMPORTANT: Only use cards from the list above that are legal in ${format}. Include basic lands as needed to reach ${deckSize} cards.
-Return ONLY the JSON, no other text.`
+IMPORTANT: Include basic lands as needed to reach EXACTLY ${deckSize} cards. Count all cards before responding.
+Return ONLY valid JSON, no other text.`
 
       const response = await fetch(
         `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
@@ -1001,6 +1022,7 @@ Return ONLY the JSON, no other text.`
       setResult({
         strategy: parsed.strategy || 'AI-generated deck',
         cards: parsed.cards || [],
+        commander: parsed.commander || undefined,
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to generate deck')
@@ -1118,7 +1140,7 @@ Return ONLY the JSON, no other text.`
                 disabled={isOpeningBuilder}
                 onClick={async () => {
                   setIsOpeningBuilder(true)
-                  await onOpenInDeckBuilder(result.cards, format, result.strategy)
+                  await onOpenInDeckBuilder(result.cards, format, result.strategy, result.commander)
                 }}
               >
                 {isOpeningBuilder ? 'Loading cards...' : 'Open in Deck Builder'}

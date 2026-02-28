@@ -180,11 +180,13 @@ export function generateDeckPrompt(request: DeckGenerationRequest): string {
 
   let prompt = `Generate a competitive, legal ${rules.name} Magic: The Gathering deck.
 
-FORMAT RULES:
-- Minimum deck size: ${rules.minDeckSize} cards
+FORMAT RULES (MUST follow strictly):
+- Deck size: EXACTLY ${rules.minDeckSize} cards${rules.hasCommander ? ' (including commander)' : ''}
 - Maximum copies per card: ${rules.maxCopies} (except basic lands)
-- Recommended land count: ${rules.recommendedLands}
-${rules.hasCommander ? '- Must include a legendary creature as commander' : ''}
+- You MUST include exactly ${rules.recommendedLands} lands (mana-producing lands, not spells)
+${rules.hasCommander ? `- COMMANDER: You MUST include a legendary creature as commander. The commander MUST have the type "Legendary Creature". Artifacts, enchantments, or other non-creature cards cannot be commanders unless they explicitly say they can be.
+- Commander format is SINGLETON: every non-basic-land card can only have 1 copy
+- The deck must have exactly 99 cards + 1 commander = 100 total` : ''}
 ${rules.hasSideboard ? `- Include a ${rules.sideboardSize}-card sideboard` : ''}
 
 DECK REQUIREMENTS:
@@ -231,19 +233,22 @@ IMPORTANT LEGALITY RULES:
 - If unsure about a card's legality, choose a safe alternative
 
 DECK BALANCE GUIDELINES:
-- Ensure proper mana base (correct land types for colors)
-- Include enough card draw/filtering (3-6 cards)
-- Include removal spells appropriate to the format (4-8 cards)
+- LANDS ARE MANDATORY: Include ${rules.recommendedLands} lands. Use dual lands, fetch lands, and utility lands appropriate for the format and colors.${rules.hasCommander ? ' For a 5-color deck use Command Tower, City of Brass, Mana Confluence, shock lands, fetch lands, and triomes.' : ''}
+- Include enough card draw/filtering (3-6 cards${rules.hasCommander ? ', 8-12 for Commander' : ''})
+- Include removal spells appropriate to the format (4-8 cards${rules.hasCommander ? ', 8-12 for Commander' : ''})
+- Include mana acceleration/ramp (${rules.hasCommander ? '10-15 sources including Sol Ring, signets, and land ramp spells' : '0-4 sources'})
 - Ensure deck has a clear win condition
 - Cards should synergize with the chosen strategy
 
 OUTPUT FORMAT:
-Return the deck as a list with each line in format: "QUANTITY CARDNAME"
+${rules.hasCommander ? `Start with "Commander" section header, then the commander card on its own line.
+Then list the remaining 99 cards grouped by type.` : 'Return the deck as a list with each line in format: "QUANTITY CARDNAME"'}
 Group cards by type (Creatures, Instants, Sorceries, Enchantments, Artifacts, Planeswalkers, Lands)
-Include section headers.
+Include section headers. The "Lands" section MUST be present with ${rules.recommendedLands} land cards.
 ${rules.hasSideboard ? 'Include a "Sideboard" section at the end.' : ''}
+Each card line format: "QUANTITY CARDNAME" (e.g. "1 Sol Ring" or "4 Lightning Bolt")
 
-Generate a deck that would score at least 6/10 in competitive viability while being fun to play.`
+CRITICAL: The total card count MUST equal exactly ${rules.minDeckSize}. Count your cards before responding. Do not output fewer cards.`
 
   return prompt
 }

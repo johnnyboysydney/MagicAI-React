@@ -435,15 +435,45 @@ export default function Collection() {
 
           {stats.uniqueCards >= 20 && (
             <div className="sidebar-card ai-build-card">
-              <h3>AI Deck Builder</h3>
-              <p className="ai-build-desc">Let AI build the best deck from your collection.</p>
+              <div className="ai-build-header">
+                <div className="ai-build-badge">AI</div>
+                <h3>Smart Deck Builder</h3>
+                <div className="ai-info-tooltip">
+                  <span className="ai-info-icon">i</span>
+                  <div className="ai-info-popup">
+                    <strong>How it works</strong>
+                    <p>Our AI analyzes every card in your collection and builds an optimized deck tailored to your chosen format and strategy.</p>
+                    <ul>
+                      <li>Respects format legality rules</li>
+                      <li>Builds a balanced mana curve</li>
+                      <li>Uses only cards you own</li>
+                      <li>Explains the strategy behind each build</li>
+                    </ul>
+                    <span className="ai-info-cost">10 credits per generation</span>
+                  </div>
+                </div>
+              </div>
+              <p className="ai-build-desc">
+                AI analyzes your {stats.uniqueCards} cards and crafts an optimized deck for any format.
+              </p>
+              <div className="ai-format-tags">
+                <span className="ai-format-tag">Standard</span>
+                <span className="ai-format-tag">Modern</span>
+                <span className="ai-format-tag">Pioneer</span>
+                <span className="ai-format-tag">Commander</span>
+                <span className="ai-format-tag">+3</span>
+              </div>
               <button
                 className="btn btn-ai-build"
                 onClick={() => setShowAiBuildModal(true)}
               >
+                <span className="ai-btn-icon">&#9733;</span>
                 Build Deck from Collection
               </button>
-              <span className="ai-cost-hint">Costs 5 credits</span>
+              <div className="ai-cost-row">
+                <span className="ai-cost-hint">10 credits per build</span>
+                <span className="ai-credits-remaining">{user?.credits ?? 0} available</span>
+              </div>
             </div>
           )}
 
@@ -763,8 +793,8 @@ function AiBuildModal({
   const [error, setError] = useState<string | null>(null)
 
   const handleGenerate = async () => {
-    if (userCredits < 5) {
-      setError('Not enough credits. You need 5 credits for AI deck building.')
+    if (userCredits < 10) {
+      setError('Not enough credits. You need 10 credits for AI deck building.')
       return
     }
 
@@ -834,7 +864,7 @@ Return ONLY the JSON, no other text.`
       }
 
       const parsed = JSON.parse(jsonMatch[0])
-      await onUseCredits(5)
+      await onUseCredits(10)
 
       setResult({
         strategy: parsed.strategy || 'AI-generated deck',
@@ -853,10 +883,15 @@ Return ONLY the JSON, no other text.`
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content ai-build-modal" onClick={(e) => e.stopPropagation()}>
         <button className="modal-close" onClick={onClose}>&times;</button>
-        <h2>AI: Build Deck from Collection</h2>
-        <p className="ai-modal-desc">
-          AI will analyze your {cards.length} cards and build the best possible deck.
-        </p>
+        <div className="ai-modal-header">
+          <div className="ai-modal-badge">AI</div>
+          <div>
+            <h2>Smart Deck Builder</h2>
+            <p className="ai-modal-desc">
+              AI will analyze your {cards.length} cards and build the best possible deck for your chosen format.
+            </p>
+          </div>
+        </div>
 
         {!result ? (
           <>
@@ -885,11 +920,11 @@ Return ONLY the JSON, no other text.`
             {error && <p className="ai-error">{error}</p>}
 
             <div className="ai-build-footer">
-              <span className="credits-note">Cost: 5 credits (you have {userCredits})</span>
+              <span className="credits-note">Cost: 10 credits (you have {userCredits})</span>
               <button
                 className="btn btn-primary"
                 onClick={handleGenerate}
-                disabled={isGenerating || userCredits < 5}
+                disabled={isGenerating || userCredits < 10}
               >
                 {isGenerating ? 'Generating...' : 'Generate Deck'}
               </button>

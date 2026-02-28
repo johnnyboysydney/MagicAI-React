@@ -105,7 +105,7 @@ export async function recognizeCardAI(imageBase64: string): Promise<string | nul
   }
 
   try {
-    const model = ai.getGenerativeModel({ model: 'gemini-1.5-flash' })
+    const model = ai.getGenerativeModel({ model: 'gemini-2.0-flash' })
 
     // Remove data URL prefix if present
     const base64Data = imageBase64.includes(',')
@@ -149,7 +149,7 @@ export async function recognizeMultipleCardsAI(imageBase64: string): Promise<str
   }
 
   try {
-    const model = ai.getGenerativeModel({ model: 'gemini-1.5-flash' })
+    const model = ai.getGenerativeModel({ model: 'gemini-2.0-flash' })
 
     const base64Data = imageBase64.includes(',')
       ? imageBase64.split(',')[1]

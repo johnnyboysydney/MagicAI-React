@@ -125,7 +125,7 @@ Be honest and constructive. Rate power level based on:
 - 10: Meta-defining/top tier`
 
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
     const result = await model.generateContent(prompt)
     const response = result.response.text()
 
@@ -212,7 +212,7 @@ ${isCommander ? '- Consider commander synergy and color identity restrictions' :
 - Be constructive but honest about weaknesses`
 
   try {
-    const model = genAI.getGenerativeModel({ model: 'gemini-2.0-flash' })
+    const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash' })
     const result = await model.generateContent(prompt)
     const response = result.response.text()
 

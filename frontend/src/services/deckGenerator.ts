@@ -250,8 +250,9 @@ export interface ParsedDeck {
 
 export function parseAIDeckResponse(response: string): ParsedDeck {
   const lines = response.split('\n')
-  const mainboard: Array<{ quantity: number; name: string }> = []
-  const sideboard: Array<{ quantity: number; name: string }> = []
+  // Use Maps to merge duplicates (AI sometimes lists same card under multiple type headers)
+  const mainboardMap = new Map<string, number>()
+  const sideboardMap = new Map<string, number>()
   let commander: string | undefined
   let commanderConfirmed = false // Set true when commander found from a real card line
 
@@ -292,9 +293,11 @@ export function parseAIDeckResponse(response: string): ParsedDeck {
         commanderConfirmed = true
         currentSection = 'main' // Reset to main after commander
       } else if (currentSection === 'sideboard') {
-        sideboard.push({ quantity, name })
+        // Merge duplicate sideboard entries
+        sideboardMap.set(name, (sideboardMap.get(name) || 0) + quantity)
       } else {
-        mainboard.push({ quantity, name })
+        // Merge duplicate mainboard entries
+        mainboardMap.set(name, (mainboardMap.get(name) || 0) + quantity)
       }
       continue
     }
@@ -321,6 +324,10 @@ export function parseAIDeckResponse(response: string): ParsedDeck {
     // Other section headers (Creatures, Lands, etc.) don't change the section,
     // so we just skip them implicitly
   }
+
+  // Convert Maps to arrays
+  const mainboard = Array.from(mainboardMap.entries()).map(([name, quantity]) => ({ quantity, name }))
+  const sideboard = Array.from(sideboardMap.entries()).map(([name, quantity]) => ({ quantity, name }))
 
   return { mainboard, sideboard, commander }
 }
@@ -446,7 +453,7 @@ export async function generateDeckWithAI(
 
   try {
     const response = await fetch(
-      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+      `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
       {
         method: 'POST',
         headers: {
@@ -464,7 +471,10 @@ export async function generateDeckWithAI(
           ],
           generationConfig: {
             temperature: 0.6,
-            maxOutputTokens: 8192,
+            maxOutputTokens: 65536,
+            thinkingConfig: {
+              thinkingBudget: 1024,
+            },
           },
         }),
       }

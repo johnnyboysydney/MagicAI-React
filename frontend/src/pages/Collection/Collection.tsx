@@ -986,13 +986,13 @@ IMPORTANT: Include basic lands as needed to reach EXACTLY ${deckSize} cards. Cou
 Return ONLY valid JSON, no other text.`
 
       const response = await fetch(
-        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
         {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             contents: [{ parts: [{ text: prompt }] }],
-            generationConfig: { temperature: 0.7, maxOutputTokens: 4096 },
+            generationConfig: { temperature: 0.7, maxOutputTokens: 65536, thinkingConfig: { thinkingBudget: 1024 } },
           }),
         }
       )

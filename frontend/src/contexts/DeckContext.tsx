@@ -117,9 +117,11 @@ function calculateDeckStats(
     const type = card.cardType.charAt(0).toUpperCase() + card.cardType.slice(1)
     typeDistribution[type] = (typeDistribution[type] || 0) + card.quantity
 
-    // Mana curve (cap at 7+)
-    const cmc = Math.min(Math.floor(card.cmc), 7)
-    manaCurve[cmc] = (manaCurve[cmc] || 0) + card.quantity
+    // Mana curve (cap at 7+) - exclude lands
+    if (card.cardType !== 'land') {
+      const cmc = Math.min(Math.floor(card.cmc), 7)
+      manaCurve[cmc] = (manaCurve[cmc] || 0) + card.quantity
+    }
 
     // Counts
     if (card.cardType === 'land') landCount += card.quantity

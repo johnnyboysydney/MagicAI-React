@@ -493,11 +493,18 @@ export default function DeckBuilder() {
         setGenerationProgress
       )
 
-      // Build the deck map
+      // Build the deck map, filtering out banned cards
       const newDeckCards = new Map<string, DeckCard>()
+      const bannedCards: string[] = []
 
       for (const { quantity, card } of mainboard) {
         if (card) {
+          // Check if card is banned in the selected format
+          const legality = card.legalities?.[selectedFormat]
+          if (legality === 'banned') {
+            bannedCards.push(card.name)
+            continue
+          }
           newDeckCards.set(card.name, scryfallToDeckCard(card, quantity))
         }
       }
@@ -509,10 +516,18 @@ export default function DeckBuilder() {
 
       setDeckCards(newDeckCards)
 
-      // Show warning if some cards failed
+      // Show warning if some cards failed or were banned
+      const warnings: string[] = []
       if (failedCards.length > 0) {
         console.warn('Failed to fetch cards:', failedCards)
-        setGenerationProgress(`Deck generated! (${failedCards.length} cards not found)`)
+        warnings.push(`${failedCards.length} cards not found`)
+      }
+      if (bannedCards.length > 0) {
+        console.warn('Banned cards removed:', bannedCards)
+        warnings.push(`${bannedCards.length} banned cards removed: ${bannedCards.join(', ')}`)
+      }
+      if (warnings.length > 0) {
+        setGenerationProgress(`Deck generated! (${warnings.join('; ')})`)
       } else {
         setGenerationProgress('Deck generated successfully!')
       }

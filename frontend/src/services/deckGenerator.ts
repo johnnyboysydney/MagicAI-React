@@ -224,6 +224,12 @@ DECK REQUIREMENTS:
   }
 
   prompt += `
+IMPORTANT LEGALITY RULES:
+- ALL cards must be currently legal in ${rules.name} format
+- Do NOT include any banned or restricted cards
+- Do NOT include cards that have been recently banned (e.g., Mana Crypt, Nadu Winged Wisdom, Grief, etc.)
+- If unsure about a card's legality, choose a safe alternative
+
 DECK BALANCE GUIDELINES:
 - Ensure proper mana base (correct land types for colors)
 - Include enough card draw/filtering (3-6 cards)

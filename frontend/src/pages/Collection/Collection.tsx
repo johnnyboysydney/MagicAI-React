@@ -922,7 +922,17 @@ function AiBuildModal({
         throw new Error('Gemini API key not configured.')
       }
 
-      const cardList = cards
+      // Filter out cards that are banned in the selected format
+      const legalCards = cards.filter((c) => {
+        const legality = c.legalities?.[format]
+        return legality === 'legal' || legality === 'restricted'
+      })
+
+      if (legalCards.length === 0) {
+        throw new Error(`No cards in your collection are legal in ${format} format.`)
+      }
+
+      const cardList = legalCards
         .map((c) => `${c.quantity + c.foilQuantity}x ${c.name}`)
         .join('\n')
 
@@ -937,6 +947,11 @@ Build the best possible ${format} deck using ONLY cards from this list.
 The deck must contain exactly ${deckSize} cards including lands.
 Respect ${format} format legality and the ${format === 'commander' ? 'singleton (max 1 copy)' : 'max 4 copies'} rule.${archetypeHint}
 
+IMPORTANT LEGALITY RULES:
+- Do NOT include any cards that are banned or restricted in ${format} format.
+- Skip any banned cards from the user's collection (e.g., Mana Crypt, Nadu Winged Wisdom, Grief, etc.).
+- ALL cards in the deck must be currently legal in ${format}.
+
 Return your response in this exact JSON format:
 {
   "strategy": "2-3 sentence explanation of the deck strategy",
@@ -946,7 +961,7 @@ Return your response in this exact JSON format:
   ]
 }
 
-IMPORTANT: Only use cards from the list above. Include basic lands as needed to reach ${deckSize} cards.
+IMPORTANT: Only use cards from the list above that are legal in ${format}. Include basic lands as needed to reach ${deckSize} cards.
 Return ONLY the JSON, no other text.`
 
       const response = await fetch(

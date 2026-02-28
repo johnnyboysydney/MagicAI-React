@@ -5,7 +5,7 @@ import { useCardSearch } from '../../hooks/useScryfall'
 import { useAuth } from '../../contexts/AuthContext'
 import { useDeck } from '../../contexts/DeckContext'
 import type { ScryfallCard, DeckCard } from '../../types/card'
-import { getCardImageUrl, getCardPrice } from '../../types/card'
+import { getCardImageUrl, getCardPrice, getCardType } from '../../types/card'
 import { fetchCardByName } from '../../services/deckGenerator'
 import {
   type CardCondition,
@@ -188,7 +188,7 @@ export default function Collection() {
         name: gc.name,
         quantity: gc.quantity,
         scryfallData,
-        cardType: (collectionCard?.cardType || scryfallData.type_line?.split(' ')[0]?.toLowerCase() || 'other') as DeckCard['cardType'],
+        cardType: (collectionCard?.cardType as DeckCard['cardType']) || getCardType(scryfallData),
         cmc: collectionCard?.cmc || scryfallData.cmc || 0,
         colors: collectionCard?.colors || scryfallData.colors || [],
         manaCost: collectionCard?.manaCost || scryfallData.mana_cost || '',

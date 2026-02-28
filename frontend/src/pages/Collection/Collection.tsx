@@ -433,49 +433,55 @@ export default function Collection() {
             </div>
           )}
 
-          {stats.uniqueCards >= 20 && (
-            <div className="sidebar-card ai-build-card">
-              <div className="ai-build-header">
-                <div className="ai-build-badge">AI</div>
-                <h3>Smart Deck Builder</h3>
-                <div className="ai-info-tooltip">
-                  <span className="ai-info-icon">i</span>
-                  <div className="ai-info-popup">
-                    <strong>How it works</strong>
-                    <p>Our AI analyzes every card in your collection and builds an optimized deck tailored to your chosen format and strategy.</p>
-                    <ul>
-                      <li>Respects format legality rules</li>
-                      <li>Builds a balanced mana curve</li>
-                      <li>Uses only cards you own</li>
-                      <li>Explains the strategy behind each build</li>
-                    </ul>
-                    <span className="ai-info-cost">10 credits per generation</span>
-                  </div>
+          <div className="sidebar-card ai-build-card">
+            <div className="ai-build-header">
+              <div className="ai-build-badge">AI</div>
+              <h3>Smart Deck Builder</h3>
+              <div className="ai-info-tooltip">
+                <span className="ai-info-icon">i</span>
+                <div className="ai-info-popup">
+                  <strong>How it works</strong>
+                  <p>Our AI analyzes every card in your collection and builds an optimized deck tailored to your chosen format and strategy.</p>
+                  <ul>
+                    <li>Respects format legality rules</li>
+                    <li>Builds a balanced mana curve</li>
+                    <li>Uses only cards you own</li>
+                    <li>Explains the strategy behind each build</li>
+                  </ul>
+                  <span className="ai-info-cost">10 credits per generation</span>
                 </div>
               </div>
-              <p className="ai-build-desc">
-                AI analyzes your {stats.uniqueCards} cards and crafts an optimized deck for any format.
-              </p>
-              <div className="ai-format-tags">
-                <span className="ai-format-tag">Standard</span>
-                <span className="ai-format-tag">Modern</span>
-                <span className="ai-format-tag">Pioneer</span>
-                <span className="ai-format-tag">Commander</span>
-                <span className="ai-format-tag">+3</span>
-              </div>
-              <button
-                className="btn btn-ai-build"
-                onClick={() => setShowAiBuildModal(true)}
-              >
-                <span className="ai-btn-icon">&#9733;</span>
-                Build Deck from Collection
-              </button>
-              <div className="ai-cost-row">
-                <span className="ai-cost-hint">10 credits per build</span>
-                <span className="ai-credits-remaining">{user?.credits ?? 0} available</span>
-              </div>
             </div>
-          )}
+            <p className="ai-build-desc">
+              {stats.uniqueCards >= 2
+                ? `AI analyzes your ${stats.uniqueCards} cards and crafts an optimized deck for any format.`
+                : 'Add at least 2 cards to your collection and let AI craft an optimized deck for any format.'}
+            </p>
+            <div className="ai-format-tags">
+              <span className="ai-format-tag">Standard</span>
+              <span className="ai-format-tag">Modern</span>
+              <span className="ai-format-tag">Pioneer</span>
+              <span className="ai-format-tag">Commander</span>
+              <span className="ai-format-tag">+3</span>
+            </div>
+            {stats.uniqueCards < 2 && (
+              <p className="ai-min-cards-note">
+                You need at least 2 cards in your collection to use AI deck building.
+              </p>
+            )}
+            <button
+              className="btn btn-ai-build"
+              onClick={() => setShowAiBuildModal(true)}
+              disabled={stats.uniqueCards < 2}
+            >
+              <span className="ai-btn-icon">&#9733;</span>
+              Build Deck from Collection
+            </button>
+            <div className="ai-cost-row">
+              <span className="ai-cost-hint">10 credits per build</span>
+              <span className="ai-credits-remaining">{user?.credits ?? 0} available</span>
+            </div>
+          </div>
 
           <div className="collection-results-count">
             Showing {filteredCards.length} of {stats.uniqueCards} cards
@@ -848,7 +854,10 @@ Return ONLY the JSON, no other text.`
       )
 
       if (!response.ok) {
-        throw new Error(`AI request failed: ${response.status}`)
+        if (response.status === 429) {
+          throw new Error('AI service is temporarily busy. Please wait a moment and try again.')
+        }
+        throw new Error(`AI request failed (${response.status}). Please try again later.`)
       }
 
       const data = await response.json()

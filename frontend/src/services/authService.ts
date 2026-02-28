@@ -161,8 +161,15 @@ export async function updateUserProfile(
   updates: Partial<Pick<UserProfile, 'displayName' | 'photoURL' | 'bio'>>
 ): Promise<void> {
   const userRef = doc(db, 'users', uid)
+  // Filter out undefined values - Firestore rejects undefined
+  const cleanUpdates: Record<string, unknown> = {}
+  for (const [key, value] of Object.entries(updates)) {
+    if (value !== undefined) {
+      cleanUpdates[key] = value
+    }
+  }
   await updateDoc(userRef, {
-    ...updates,
+    ...cleanUpdates,
     updatedAt: serverTimestamp(),
   })
 }

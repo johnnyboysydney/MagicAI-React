@@ -150,11 +150,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const handleUpdateProfile = useCallback(async (updates: Partial<User>) => {
     if (!user) return
     try {
-      await updateUserProfile(user.uid, {
-        displayName: updates.displayName,
-        photoURL: updates.photoURL,
-        bio: updates.bio,
-      })
+      // Only pass defined fields to avoid Firestore undefined value errors
+      const profileUpdates: Partial<Pick<User, 'displayName' | 'photoURL' | 'bio'>> = {}
+      if (updates.displayName !== undefined) profileUpdates.displayName = updates.displayName
+      if (updates.photoURL !== undefined) profileUpdates.photoURL = updates.photoURL
+      if (updates.bio !== undefined) profileUpdates.bio = updates.bio
+
+      await updateUserProfile(user.uid, profileUpdates)
       setUser(prev => prev ? { ...prev, ...updates } : null)
     } catch (error) {
       console.error('Update profile error:', error)

@@ -231,6 +231,7 @@ DECK BALANCE:
 ${rules.hasCommander ? '- Include ramp: Sol Ring, signets, Cultivate, etc.' : ''}
 
 OUTPUT FORMAT:
+Output ONLY the card list, nothing else. No explanations, no descriptions, no strategy notes, no commentary.
 Each card line: "QUANTITY CARDNAME" (e.g. "4 Lightning Bolt" or "1 Sol Ring")
 ${rules.hasCommander ? 'First line: "1 COMMANDER_NAME" marked under a "Commander" header.' : ''}
 Group by type: Creatures, Instants, Sorceries, Enchantments, Artifacts, Planeswalkers, Lands.
@@ -252,12 +253,30 @@ export function parseAIDeckResponse(response: string): ParsedDeck {
   const mainboard: Array<{ quantity: number; name: string }> = []
   const sideboard: Array<{ quantity: number; name: string }> = []
   let commander: string | undefined
+  let commanderConfirmed = false // Set true when commander found from a real card line
 
   let currentSection: 'main' | 'sideboard' | 'commander' = 'main'
+  let pastCardList = false // Detect when we've left the card list
 
   for (const line of lines) {
     const trimmed = line.trim()
     if (!trimmed) continue
+
+    // Detect end of card list — stop parsing at explanation/commentary
+    const lower = trimmed.toLowerCase().replace(/\*/g, '')
+    if (
+      lower.startsWith('explanation') ||
+      lower.startsWith('notes') ||
+      lower.startsWith('budget') ||
+      lower.startsWith('gameplay') ||
+      lower.startsWith('strategy') ||
+      lower.startsWith('card breakdown') ||
+      lower.startsWith('possible upgrades') ||
+      lower.startsWith('mana curve')
+    ) {
+      pastCardList = true
+    }
+    if (pastCardList) continue
 
     // FIRST: try to parse as a card line (starts with a number)
     // This must come before section header detection so card names
@@ -270,6 +289,7 @@ export function parseAIDeckResponse(response: string): ParsedDeck {
 
       if (currentSection === 'commander') {
         commander = name
+        commanderConfirmed = true
         currentSection = 'main' // Reset to main after commander
       } else if (currentSection === 'sideboard') {
         sideboard.push({ quantity, name })
@@ -280,11 +300,11 @@ export function parseAIDeckResponse(response: string): ParsedDeck {
     }
 
     // SECOND: detect section headers (lines that are NOT card entries)
-    const lower = trimmed.toLowerCase()
     if (lower.includes('sideboard')) {
       currentSection = 'sideboard'
-    } else if (lower.includes('commander')) {
-      // Try to extract an inline commander name: "Commander: Card Name" or "Commander - Card Name"
+    } else if (lower.includes('commander') && !commanderConfirmed) {
+      // Only process commander headers if we haven't already found the commander
+      // from a card line — prevents explanation text from overwriting it
       const inlineMatch = trimmed.match(/commander\s*[:\-–—]\s*(.+)/i)
       if (inlineMatch) {
         const name = inlineMatch[1].replace(/\*+/g, '').trim()

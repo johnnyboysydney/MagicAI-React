@@ -926,7 +926,25 @@ Return ONLY the JSON, no other text.`
               </label>
             </div>
 
-            {error && <p className="ai-error">{error}</p>}
+            {error && (
+              <div className="ai-error-box">
+                <span className="ai-error-icon">!</span>
+                <div>
+                  <strong>Generation Failed</strong>
+                  <p>{error}</p>
+                </div>
+              </div>
+            )}
+
+            {isGenerating && (
+              <div className="ai-generating-box">
+                <div className="ai-generating-spinner" />
+                <div>
+                  <strong>Building your deck...</strong>
+                  <p>AI is analyzing {cards.length} cards and finding the best {format} build. This may take a few seconds.</p>
+                </div>
+              </div>
+            )}
 
             <div className="ai-build-footer">
               <span className="credits-note">Cost: 10 credits (you have {userCredits})</span>

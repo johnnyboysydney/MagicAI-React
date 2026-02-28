@@ -361,6 +361,18 @@
   text-align: center;
 }
 
+/* Community Cards */
+.deck-likes {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  white-space: nowrap;
+}
+
+.mini-format-badge {
+  font-weight: 600;
+  font-size: 0.8rem;
+}
+
 /* Responsive */
 @media (max-width: 1024px) {
   .dashboard-grid {

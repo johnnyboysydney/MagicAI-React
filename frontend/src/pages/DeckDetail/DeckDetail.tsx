@@ -3,7 +3,7 @@ import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
 import { useDeck } from '../../contexts/DeckContext'
 import type { Deck } from '../../contexts/DeckContext'
-import { getDeck, firestoreDeckToAppDeck } from '../../services/deckService'
+import { getDeck, firestoreDeckToAppDeck, forkDeck } from '../../services/deckService'
 import {
   toggleLike,
   hasUserLiked,
@@ -32,6 +32,8 @@ export default function DeckDetail() {
   const [newComment, setNewComment] = useState('')
   const [isSubmittingComment, setIsSubmittingComment] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [isForking, setIsForking] = useState(false)
+  const [forked, setForked] = useState(false)
 
   useEffect(() => {
     if (!deckId) return
@@ -141,6 +143,20 @@ export default function DeckDetail() {
     setDeckForAnalysis(deck.name, deck.format, deck.cards, deck.commander)
     navigate('/analysis')
   }, [deck, setDeckForAnalysis, navigate])
+
+  const handleFork = useCallback(async () => {
+    if (!user || !deckId) return
+    setIsForking(true)
+    try {
+      await forkDeck(deckId, user.uid, user.displayName)
+      setForked(true)
+    } catch (err) {
+      console.error('Failed to fork deck:', err)
+      alert('Failed to copy deck. Please try again.')
+    } finally {
+      setIsForking(false)
+    }
+  }, [user, deckId])
 
   const getFormatColor = (format: string): string => {
     const colors: Record<string, string> = {
@@ -265,6 +281,16 @@ export default function DeckDetail() {
           <button type="button" className="action-btn analyze-btn" onClick={handleAnalyze}>
             Analyze
           </button>
+          {user && deck.authorId !== user.uid && (
+            <button
+              type="button"
+              className={`action-btn fork-btn ${forked ? 'forked' : ''}`}
+              onClick={handleFork}
+              disabled={isForking || forked}
+            >
+              {forked ? 'Copied!' : isForking ? 'Copying...' : 'Copy to My Decks'}
+            </button>
+          )}
         </div>
       </div>
 
@@ -275,6 +301,16 @@ export default function DeckDetail() {
         </div>
         <span className="author-name-link">{deck.authorName}</span>
       </Link>
+
+      {/* Fork Attribution */}
+      {deck.forkedFrom && (
+        <div className="fork-attribution">
+          Forked from{' '}
+          <Link to={`/profile/${deck.forkedFrom.authorId}`}>{deck.forkedFrom.authorName}</Link>
+          {"'s "}
+          <Link to={`/deck/${deck.forkedFrom.deckId}`}>{deck.forkedFrom.deckName}</Link>
+        </div>
+      )}
 
       {/* Description & Tags */}
       {deck.description && (

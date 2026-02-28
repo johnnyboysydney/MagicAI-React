@@ -128,6 +128,41 @@
   background: rgba(139, 92, 246, 0.2);
 }
 
+.deck-detail-actions .fork-btn {
+  background: rgba(34, 197, 94, 0.1);
+  border-color: rgba(34, 197, 94, 0.3);
+  color: #22c55e;
+}
+
+.deck-detail-actions .fork-btn:hover:not(:disabled) {
+  background: rgba(34, 197, 94, 0.2);
+}
+
+.deck-detail-actions .fork-btn.forked {
+  opacity: 0.7;
+}
+
+/* Fork Attribution */
+.fork-attribution {
+  font-size: 0.85rem;
+  color: var(--text-muted);
+  margin-bottom: 1rem;
+  padding: 0.5rem 0.75rem;
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  display: inline-block;
+}
+
+.fork-attribution a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.fork-attribution a:hover {
+  text-decoration: underline;
+}
+
 /* Author Bar */
 .deck-author-bar {
   display: inline-flex;

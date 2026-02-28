@@ -24,6 +24,12 @@ export interface Deck {
   tags?: string[]
   likeCount?: number
   viewCount?: number
+  forkedFrom?: {
+    deckId: string
+    deckName: string
+    authorId: string
+    authorName: string
+  }
 }
 
 export interface DeckStats {

@@ -268,6 +268,25 @@
   text-overflow: ellipsis;
 }
 
+.my-decks-page .fork-attribution {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  padding: 0.4rem 0.6rem;
+  background: rgba(99, 102, 241, 0.05);
+  border: 1px solid rgba(99, 102, 241, 0.15);
+  border-radius: 6px;
+  margin-bottom: 0.75rem;
+}
+
+.my-decks-page .fork-attribution a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.my-decks-page .fork-attribution a:hover {
+  text-decoration: underline;
+}
+
 .my-decks-page .deck-footer {
   padding-top: 0.75rem;
   border-top: 1px solid var(--border);

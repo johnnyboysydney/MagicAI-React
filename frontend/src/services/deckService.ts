@@ -30,6 +30,12 @@ export interface FirestoreDeck {
   commander?: SerializedDeckCard | null
   likeCount: number
   viewCount: number
+  forkedFrom?: {
+    deckId: string
+    deckName: string
+    authorId: string
+    authorName: string
+  }
   createdAt: Date
   updatedAt: Date
 }
@@ -152,6 +158,7 @@ export async function getDeck(deckId: string): Promise<FirestoreDeck | null> {
     commander: data.commander,
     likeCount: data.likeCount || 0,
     viewCount: data.viewCount || 0,
+      forkedFrom: data.forkedFrom || undefined,
     createdAt: timestampToDate(data.createdAt),
     updatedAt: timestampToDate(data.updatedAt),
   }
@@ -182,6 +189,7 @@ export async function getUserDecks(userId: string): Promise<FirestoreDeck[]> {
       commander: data.commander,
       likeCount: data.likeCount || 0,
       viewCount: data.viewCount || 0,
+      forkedFrom: data.forkedFrom || undefined,
       createdAt: timestampToDate(data.createdAt),
       updatedAt: timestampToDate(data.updatedAt),
     }
@@ -214,6 +222,7 @@ export async function getPublicDecks(limitCount = 20): Promise<FirestoreDeck[]> 
       commander: data.commander,
       likeCount: data.likeCount || 0,
       viewCount: data.viewCount || 0,
+      forkedFrom: data.forkedFrom || undefined,
       createdAt: timestampToDate(data.createdAt),
       updatedAt: timestampToDate(data.updatedAt),
     }
@@ -246,6 +255,7 @@ export async function getPublicDecksByUser(userId: string): Promise<FirestoreDec
       commander: data.commander,
       likeCount: data.likeCount || 0,
       viewCount: data.viewCount || 0,
+      forkedFrom: data.forkedFrom || undefined,
       createdAt: timestampToDate(data.createdAt),
       updatedAt: timestampToDate(data.updatedAt),
     }
@@ -311,6 +321,12 @@ export function firestoreDeckToAppDeck(deck: FirestoreDeck): {
   tags?: string[]
   likeCount?: number
   viewCount?: number
+  forkedFrom?: {
+    deckId: string
+    deckName: string
+    authorId: string
+    authorName: string
+  }
 } {
   const cardsMap = new Map<string, DeckCard>()
   deck.cards.forEach((card) => {
@@ -332,5 +348,74 @@ export function firestoreDeckToAppDeck(deck: FirestoreDeck): {
     tags: deck.tags,
     likeCount: deck.likeCount,
     viewCount: deck.viewCount,
+    forkedFrom: deck.forkedFrom,
   }
+}
+
+// Fork (copy) a deck to the user's collection
+export async function forkDeck(
+  sourceDeckId: string,
+  userId: string,
+  userName: string
+): Promise<string> {
+  const sourceDeck = await getDeck(sourceDeckId)
+  if (!sourceDeck) throw new Error('Source deck not found')
+
+  const decksRef = collection(db, 'decks')
+  const docRef = await addDoc(decksRef, {
+    name: `${sourceDeck.name} (Copy)`,
+    format: sourceDeck.format,
+    authorId: userId,
+    authorName: userName,
+    isPublic: false,
+    description: sourceDeck.description || '',
+    tags: sourceDeck.tags || [],
+    cards: sourceDeck.cards,
+    commander: sourceDeck.commander || null,
+    likeCount: 0,
+    viewCount: 0,
+    forkedFrom: {
+      deckId: sourceDeckId,
+      deckName: sourceDeck.name,
+      authorId: sourceDeck.authorId,
+      authorName: sourceDeck.authorName,
+    },
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  })
+
+  return docRef.id
+}
+
+// Get trending decks (by like count)
+export async function getTrendingDecks(limitCount = 10): Promise<FirestoreDeck[]> {
+  const decksRef = collection(db, 'decks')
+  const q = query(
+    decksRef,
+    where('isPublic', '==', true),
+    orderBy('likeCount', 'desc'),
+    limit(limitCount)
+  )
+
+  const querySnapshot = await getDocs(q)
+  return querySnapshot.docs.map((d) => {
+    const data = d.data()
+    return {
+      id: d.id,
+      name: data.name,
+      format: data.format,
+      authorId: data.authorId,
+      authorName: data.authorName,
+      isPublic: data.isPublic,
+      description: data.description,
+      tags: data.tags,
+      cards: data.cards || [],
+      commander: data.commander,
+      likeCount: data.likeCount || 0,
+      viewCount: data.viewCount || 0,
+      forkedFrom: data.forkedFrom || undefined,
+      createdAt: timestampToDate(data.createdAt),
+      updatedAt: timestampToDate(data.updatedAt),
+    }
+  })
 }

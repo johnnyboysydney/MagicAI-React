@@ -270,6 +270,15 @@ export default function MyDecks() {
                 </div>
               )}
 
+              {deck.forkedFrom && (
+                <div className="fork-attribution">
+                  Forked from{' '}
+                  <Link to={`/profile/${deck.forkedFrom.authorId}`}>{deck.forkedFrom.authorName}</Link>
+                  {"'s "}
+                  <Link to={`/deck/${deck.forkedFrom.deckId}`}>{deck.forkedFrom.deckName}</Link>
+                </div>
+              )}
+
               <div className="deck-footer">
                 <span className="updated-at">Updated {formatDate(deck.updatedAt)}</span>
               </div>

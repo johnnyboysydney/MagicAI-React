@@ -1,13 +1,10 @@
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuth } from '../../contexts/AuthContext'
+import { useDeck } from '../../contexts/DeckContext'
+import type { Deck } from '../../contexts/DeckContext'
+import { getPublicDecks, getTrendingDecks, firestoreDeckToAppDeck } from '../../services/deckService'
 import './Dashboard.css'
-
-// Mock data - will be replaced with real data from Firebase later
-const MOCK_RECENT_DECKS = [
-  { id: '1', name: 'Mono Red Aggro', format: 'Standard', cards: 60, updatedAt: 'Today' },
-  { id: '2', name: 'Azorius Control', format: 'Pioneer', cards: 75, updatedAt: 'Yesterday' },
-  { id: '3', name: 'Elves Tribal', format: 'Commander', cards: 100, updatedAt: '3 days ago' },
-]
 
 const QUICK_ACTIONS = [
   {
@@ -57,23 +54,79 @@ const TIPS = [
 
 export default function Dashboard() {
   const { user } = useAuth()
+  const { userDecks } = useDeck()
+
+  const [trendingDecks, setTrendingDecks] = useState<Deck[]>([])
+  const [recentPublic, setRecentPublic] = useState<Deck[]>([])
 
   // Get a tip based on the day
   const tipOfTheDay = TIPS[Math.floor(Date.now() / (1000 * 60 * 60 * 24)) % TIPS.length]
 
-  // Mock stats
+  // Load community data
+  useEffect(() => {
+    const loadCommunityData = async () => {
+      try {
+        const [trending, recent] = await Promise.all([
+          getTrendingDecks(5),
+          getPublicDecks(5),
+        ])
+        setTrendingDecks(trending.map(firestoreDeckToAppDeck))
+        setRecentPublic(recent.map(firestoreDeckToAppDeck))
+      } catch (err) {
+        console.error('Failed to load community data:', err)
+      }
+    }
+    loadCommunityData()
+  }, [])
+
+  // Real stats from user data
   const stats = {
-    totalDecks: 12,
-    cardsScanned: 156,
-    analysesRun: 24,
+    totalDecks: userDecks.length,
+    publicDecks: userDecks.filter((d) => d.isPublic).length,
     creditsRemaining: user?.credits ?? 0,
   }
+
+  // Recent user decks (sorted by updatedAt, take 5)
+  const recentUserDecks = [...userDecks]
+    .sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime())
+    .slice(0, 5)
 
   const getGreeting = () => {
     const hour = new Date().getHours()
     if (hour < 12) return 'Good morning'
     if (hour < 18) return 'Good afternoon'
     return 'Good evening'
+  }
+
+  const formatDate = (dateString: string) => {
+    const date = new Date(dateString)
+    const now = new Date()
+    const diffMs = now.getTime() - date.getTime()
+    const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24))
+    if (diffDays === 0) return 'Today'
+    if (diffDays === 1) return 'Yesterday'
+    if (diffDays < 7) return `${diffDays} days ago`
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
+  }
+
+  const getFormatColor = (format: string): string => {
+    const colors: Record<string, string> = {
+      standard: '#22c55e',
+      modern: '#3b82f6',
+      commander: '#8b5cf6',
+      pioneer: '#f59e0b',
+      legacy: '#ef4444',
+      vintage: '#ec4899',
+      pauper: '#6b7280',
+    }
+    return colors[format] || '#6b7280'
+  }
+
+  const getDeckCardCount = (deck: Deck): number => {
+    let count = 0
+    deck.cards.forEach((card) => { count += card.quantity })
+    if (deck.commander) count += 1
+    return count
   }
 
   return (
@@ -126,17 +179,17 @@ export default function Dashboard() {
               <h3>Recent Decks</h3>
               <Link to="/my-decks" className="view-all-link">View All</Link>
             </div>
-            {MOCK_RECENT_DECKS.length > 0 ? (
+            {recentUserDecks.length > 0 ? (
               <div className="decks-list">
-                {MOCK_RECENT_DECKS.map(deck => (
+                {recentUserDecks.map((deck) => (
                   <Link key={deck.id} to={`/deck/${deck.id}`} className="deck-item">
                     <div className="deck-info">
                       <span className="deck-name">{deck.name}</span>
                       <span className="deck-meta">
-                        {deck.format} • {deck.cards} cards
+                        {deck.format.charAt(0).toUpperCase() + deck.format.slice(1)} • {getDeckCardCount(deck)} cards
                       </span>
                     </div>
-                    <span className="deck-date">{deck.updatedAt}</span>
+                    <span className="deck-date">{formatDate(deck.updatedAt)}</span>
                   </Link>
                 ))}
               </div>
@@ -160,15 +213,73 @@ export default function Dashboard() {
                 <span className="stat-label">Decks Built</span>
               </div>
               <div className="stat-item">
-                <span className="stat-value">{stats.cardsScanned}</span>
-                <span className="stat-label">Cards Scanned</span>
+                <span className="stat-value">{stats.publicDecks}</span>
+                <span className="stat-label">Public</span>
               </div>
               <div className="stat-item">
-                <span className="stat-value">{stats.analysesRun}</span>
-                <span className="stat-label">AI Analyses</span>
+                <span className="stat-value">{stats.creditsRemaining}</span>
+                <span className="stat-label">Credits</span>
               </div>
             </div>
           </section>
+
+          {/* Trending Decks */}
+          {trendingDecks.length > 0 && (
+            <section className="dashboard-card community-card">
+              <div className="card-header">
+                <h3>Trending Decks</h3>
+                <Link to="/public-decks" className="view-all-link">Explore</Link>
+              </div>
+              <div className="decks-list">
+                {trendingDecks.map((deck) => (
+                  <Link key={deck.id} to={`/deck/${deck.id}`} className="deck-item">
+                    <div className="deck-info">
+                      <span className="deck-name">{deck.name}</span>
+                      <span className="deck-meta">
+                        <span
+                          className="mini-format-badge"
+                          style={{ color: getFormatColor(deck.format) }}
+                        >
+                          {deck.format.charAt(0).toUpperCase() + deck.format.slice(1)}
+                        </span>
+                        {' • '}by {deck.authorName}
+                      </span>
+                    </div>
+                    <span className="deck-likes">{deck.likeCount || 0} likes</span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
+
+          {/* Recently Published */}
+          {recentPublic.length > 0 && (
+            <section className="dashboard-card community-card">
+              <div className="card-header">
+                <h3>Recently Published</h3>
+                <Link to="/public-decks" className="view-all-link">View All</Link>
+              </div>
+              <div className="decks-list">
+                {recentPublic.map((deck) => (
+                  <Link key={deck.id} to={`/deck/${deck.id}`} className="deck-item">
+                    <div className="deck-info">
+                      <span className="deck-name">{deck.name}</span>
+                      <span className="deck-meta">
+                        <span
+                          className="mini-format-badge"
+                          style={{ color: getFormatColor(deck.format) }}
+                        >
+                          {deck.format.charAt(0).toUpperCase() + deck.format.slice(1)}
+                        </span>
+                        {' • '}by {deck.authorName}
+                      </span>
+                    </div>
+                    <span className="deck-date">{formatDate(deck.updatedAt)}</span>
+                  </Link>
+                ))}
+              </div>
+            </section>
+          )}
 
           {/* Tip of the Day */}
           <section className="dashboard-card tip-card">

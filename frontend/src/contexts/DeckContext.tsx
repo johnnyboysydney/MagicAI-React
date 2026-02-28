@@ -22,6 +22,8 @@ export interface Deck {
   authorName: string
   description?: string
   tags?: string[]
+  likeCount?: number
+  viewCount?: number
 }
 
 export interface DeckStats {
@@ -44,6 +46,9 @@ export interface DeckBuilderState {
   deckCards: Map<string, DeckCard>
   commander: DeckCard | null
   editingDeckId: string | null
+  description?: string
+  tags?: string[]
+  isPublic?: boolean
 }
 
 interface DeckContextType {
@@ -159,6 +164,9 @@ const DEFAULT_BUILDER_STATE: DeckBuilderState = {
   deckCards: new Map(),
   commander: null,
   editingDeckId: null,
+  description: '',
+  tags: [],
+  isPublic: false,
 }
 
 export function DeckProvider({ children }: { children: ReactNode }) {

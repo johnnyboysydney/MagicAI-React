@@ -28,6 +28,8 @@ export interface FirestoreDeck {
   tags?: string[]
   cards: SerializedDeckCard[]
   commander?: SerializedDeckCard | null
+  likeCount: number
+  viewCount: number
   createdAt: Date
   updatedAt: Date
 }
@@ -120,6 +122,8 @@ export async function createDeck(
     tags: deck.tags || [],
     cards: serializedCards,
     commander: serializedCommander,
+    likeCount: 0,
+    viewCount: 0,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   })
@@ -146,6 +150,8 @@ export async function getDeck(deckId: string): Promise<FirestoreDeck | null> {
     tags: data.tags,
     cards: data.cards || [],
     commander: data.commander,
+    likeCount: data.likeCount || 0,
+    viewCount: data.viewCount || 0,
     createdAt: timestampToDate(data.createdAt),
     updatedAt: timestampToDate(data.updatedAt),
   }
@@ -174,6 +180,8 @@ export async function getUserDecks(userId: string): Promise<FirestoreDeck[]> {
       tags: data.tags,
       cards: data.cards || [],
       commander: data.commander,
+      likeCount: data.likeCount || 0,
+      viewCount: data.viewCount || 0,
       createdAt: timestampToDate(data.createdAt),
       updatedAt: timestampToDate(data.updatedAt),
     }
@@ -204,6 +212,8 @@ export async function getPublicDecks(limitCount = 20): Promise<FirestoreDeck[]> 
       tags: data.tags,
       cards: data.cards || [],
       commander: data.commander,
+      likeCount: data.likeCount || 0,
+      viewCount: data.viewCount || 0,
       createdAt: timestampToDate(data.createdAt),
       updatedAt: timestampToDate(data.updatedAt),
     }
@@ -267,6 +277,8 @@ export function firestoreDeckToAppDeck(deck: FirestoreDeck): {
   authorName: string
   description?: string
   tags?: string[]
+  likeCount?: number
+  viewCount?: number
 } {
   const cardsMap = new Map<string, DeckCard>()
   deck.cards.forEach((card) => {
@@ -286,5 +298,7 @@ export function firestoreDeckToAppDeck(deck: FirestoreDeck): {
     authorName: deck.authorName,
     description: deck.description,
     tags: deck.tags,
+    likeCount: deck.likeCount,
+    viewCount: deck.viewCount,
   }
 }

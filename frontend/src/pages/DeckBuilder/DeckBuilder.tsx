@@ -50,6 +50,13 @@ export default function DeckBuilder() {
   const [generationError, setGenerationError] = useState<string | null>(null)
   const [showScanner, setShowScanner] = useState(false)
 
+  // Save modal state
+  const [showSaveModal, setShowSaveModal] = useState(false)
+  const [saveDescription, setSaveDescription] = useState(builderState.description || '')
+  const [saveTags, setSaveTags] = useState<string[]>(builderState.tags || [])
+  const [saveIsPublic, setSaveIsPublic] = useState(builderState.isPublic || false)
+  const [tagInput, setTagInput] = useState('')
+
   // Version history state
   const [showVersionHistory, setShowVersionHistory] = useState(false)
   const [versions, setVersions] = useState<DeckVersion[]>([])
@@ -64,8 +71,11 @@ export default function DeckBuilder() {
       deckCards,
       commander,
       editingDeckId,
+      description: saveDescription,
+      tags: saveTags,
+      isPublic: saveIsPublic,
     })
-  }, [deckName, selectedFormat, deckCards, commander, editingDeckId, setBuilderState])
+  }, [deckName, selectedFormat, deckCards, commander, editingDeckId, saveDescription, saveTags, saveIsPublic, setBuilderState])
 
   // AI Generation options
   const [selectedArchetype, setSelectedArchetype] = useState<DeckArchetype>('Midrange')
@@ -265,26 +275,52 @@ export default function DeckBuilder() {
       setCommander(null)
       setEditingDeckId(null)
       setDeckName('Untitled Deck')
+      setSaveDescription('')
+      setSaveTags([])
+      setSaveIsPublic(false)
     }
   }, [])
 
-  const handleSave = async () => {
+  const handleSave = () => {
     if (deckCards.size === 0 && !commander) {
       alert('Please add some cards to your deck first!')
       return
     }
+    setShowSaveModal(true)
+  }
 
+  const handleAddTag = () => {
+    const tag = tagInput.trim().toLowerCase()
+    if (tag && !saveTags.includes(tag) && saveTags.length < 5) {
+      setSaveTags([...saveTags, tag])
+      setTagInput('')
+    }
+  }
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setSaveTags(saveTags.filter((t) => t !== tagToRemove))
+  }
+
+  const handleTagKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      handleAddTag()
+    }
+  }
+
+  const handleConfirmSave = async () => {
     setIsSaving(true)
     try {
       if (editingDeckId) {
-        // Update existing deck
         await updateDeck(editingDeckId, {
           name: deckName,
           format: selectedFormat,
           cards: deckCards,
           commander,
+          isPublic: saveIsPublic,
+          description: saveDescription,
+          tags: saveTags,
         })
-        // Save version snapshot (pro/premium only)
         if (canUseVersioning) {
           try {
             await saveVersion(editingDeckId, deckCards, commander)
@@ -293,18 +329,17 @@ export default function DeckBuilder() {
           }
         }
         await refreshDecks()
-        alert('Deck updated!')
       } else {
-        // Create new deck
         const newId = await saveDeck({
           name: deckName,
           format: selectedFormat,
           cards: deckCards,
           commander,
-          isPublic: false,
+          isPublic: saveIsPublic,
+          description: saveDescription,
+          tags: saveTags,
         })
         setEditingDeckId(newId)
-        // Save initial version (pro/premium only)
         if (canUseVersioning) {
           try {
             await saveVersion(newId, deckCards, commander)
@@ -312,8 +347,8 @@ export default function DeckBuilder() {
             console.warn('Failed to save initial version:', err)
           }
         }
-        alert('Deck saved!')
       }
+      setShowSaveModal(false)
     } catch (error) {
       console.error('Error saving deck:', error)
       alert(error instanceof Error ? error.message : 'Failed to save deck. Please try again.')
@@ -566,6 +601,79 @@ export default function DeckBuilder() {
         }
         warnings.push(`Added ${shortage} basic lands to reach ${rules.minDeckSize} cards`)
       }
+
+      // Trim excess cards if deck exceeds target size
+      {
+        const targetDeckSize = rules.maxDeckSize || rules.minDeckSize
+        const targetMainboard = targetDeckSize - (isCommanderFormat && aiCommander ? 1 : 0)
+        let currentTotal = Array.from(newDeckCards.values()).reduce((sum, c) => sum + c.quantity, 0)
+        const excess = currentTotal - targetMainboard
+
+        if (excess > 0) {
+          console.log(`Deck has ${excess} excess cards (${currentTotal}/${targetMainboard} mainboard). Trimming proportionally.`)
+
+          // Count current lands vs non-lands
+          let landCount = 0
+          newDeckCards.forEach((card) => {
+            if (card.cardType === 'land') landCount += card.quantity
+          })
+          const nonLandCount = currentTotal - landCount
+
+          // Calculate how many of each to trim to match recommended ratio
+          const excessLands = Math.max(0, landCount - rules.recommendedLands)
+          const landsToTrim = Math.min(excessLands, excess)
+          const nonLandsToTrim = excess - landsToTrim
+
+          console.log(`Trimming: ${landsToTrim} lands (${landCount} → ${landCount - landsToTrim}), ${nonLandsToTrim} non-lands (${nonLandCount} → ${nonLandCount - nonLandsToTrim})`)
+
+          let remaining = excess
+
+          // Step 1: Trim excess non-basic lands (keep basic mana base)
+          if (landsToTrim > 0) {
+            let landRemaining = landsToTrim
+            for (const [name, card] of Array.from(newDeckCards.entries()).reverse()) {
+              if (landRemaining <= 0) break
+              if (card.cardType !== 'land') continue
+              const isBasicLand = ['Plains', 'Island', 'Swamp', 'Mountain', 'Forest'].includes(name)
+              if (isBasicLand) continue
+              const remove = Math.min(card.quantity, landRemaining)
+              card.quantity -= remove
+              landRemaining -= remove
+              remaining -= remove
+              if (card.quantity <= 0) newDeckCards.delete(name)
+            }
+          }
+
+          // Step 2: Trim non-land cards from the end
+          if (remaining > 0) {
+            for (const [name, card] of Array.from(newDeckCards.entries()).reverse()) {
+              if (remaining <= 0) break
+              if (card.cardType === 'land') continue
+              const remove = Math.min(card.quantity, remaining)
+              card.quantity -= remove
+              remaining -= remove
+              if (card.quantity <= 0) newDeckCards.delete(name)
+            }
+          }
+
+          // Step 3: Fallback — trim anything remaining
+          if (remaining > 0) {
+            for (const [name, card] of Array.from(newDeckCards.entries()).reverse()) {
+              if (remaining <= 0) break
+              const remove = Math.min(card.quantity, remaining)
+              card.quantity -= remove
+              remaining -= remove
+              if (card.quantity <= 0) newDeckCards.delete(name)
+            }
+          }
+
+          warnings.push(`Removed ${excess} excess cards to meet ${targetDeckSize} card limit`)
+        }
+      }
+
+      // Log final deck count for debugging
+      const finalTotal = Array.from(newDeckCards.values()).reduce((sum, c) => sum + c.quantity, 0)
+      console.log(`Final deck: ${finalTotal} mainboard cards${isCommanderFormat && aiCommander ? ' + 1 commander' : ''} = ${finalTotal + (isCommanderFormat && aiCommander ? 1 : 0)} total`)
 
       setDeckCards(newDeckCards)
 
@@ -1453,6 +1561,107 @@ export default function DeckBuilder() {
           onCardsScanned={handleScannedCards}
           selectedFormat={selectedFormat}
         />
+      )}
+
+      {/* Save Modal */}
+      {showSaveModal && (
+        <div className="modal-overlay" onClick={() => setShowSaveModal(false)}>
+          <div className="modal-content save-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="modal-header">
+              <h2>{editingDeckId ? 'Update Deck' : 'Save Deck'}</h2>
+              <button type="button" className="modal-close" onClick={() => setShowSaveModal(false)}>
+                x
+              </button>
+            </div>
+
+            <div className="modal-body">
+              <div className="form-section">
+                <label>Deck Name</label>
+                <input
+                  type="text"
+                  className="deck-name-input"
+                  value={deckName}
+                  onChange={(e) => setDeckName(e.target.value)}
+                  placeholder="My Awesome Deck"
+                />
+              </div>
+
+              <div className="form-section">
+                <label>Description (optional)</label>
+                <textarea
+                  value={saveDescription}
+                  onChange={(e) => setSaveDescription(e.target.value)}
+                  placeholder="Describe your deck strategy, win conditions, etc..."
+                  rows={3}
+                />
+              </div>
+
+              <div className="form-section">
+                <label>Tags (up to 5)</label>
+                <div className="tag-input-container">
+                  <div className="tag-chips">
+                    {saveTags.map((tag) => (
+                      <span key={tag} className="tag-chip">
+                        {tag}
+                        <button type="button" onClick={() => handleRemoveTag(tag)}>x</button>
+                      </span>
+                    ))}
+                  </div>
+                  {saveTags.length < 5 && (
+                    <div className="tag-input-row">
+                      <input
+                        type="text"
+                        value={tagInput}
+                        onChange={(e) => setTagInput(e.target.value)}
+                        onKeyDown={handleTagKeyDown}
+                        placeholder="Add a tag..."
+                      />
+                      <button type="button" className="btn btn-secondary" onClick={handleAddTag} disabled={!tagInput.trim()}>
+                        Add
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="form-section">
+                <label>Visibility</label>
+                <div
+                  className={`public-toggle ${saveIsPublic ? 'active' : ''}`}
+                  onClick={() => setSaveIsPublic(!saveIsPublic)}
+                >
+                  <div className="toggle-track">
+                    <div className="toggle-thumb" />
+                  </div>
+                  <div className="toggle-label">
+                    <span className="toggle-text">{saveIsPublic ? 'Public' : 'Private'}</span>
+                    <span className="toggle-desc">
+                      {saveIsPublic
+                        ? 'Anyone can see this deck on the Explore page'
+                        : 'Only you can see this deck'}
+                    </span>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div className="modal-footer">
+              <button type="button" className="btn btn-secondary" onClick={() => setShowSaveModal(false)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="btn btn-primary"
+                onClick={handleConfirmSave}
+                disabled={isSaving || !deckName.trim()}
+              >
+                {isSaving
+                  ? (editingDeckId ? 'Updating...' : 'Saving...')
+                  : (editingDeckId ? 'Update Deck' : 'Save Deck')}
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {/* Version History Modal */}

@@ -9,7 +9,7 @@ type FilterFormat = 'all' | 'standard' | 'modern' | 'commander' | 'pioneer' | 'l
 
 export default function MyDecks() {
   const navigate = useNavigate()
-  const { userDecks, deleteDeck, setDeckForAnalysis, setBuilderState, isLoadingDecks } = useDeck()
+  const { userDecks, deleteDeck, updateDeck, setDeckForAnalysis, setBuilderState, isLoadingDecks } = useDeck()
   const { isAuthenticated } = useAuth()
 
   const [searchQuery, setSearchQuery] = useState('')
@@ -77,8 +77,21 @@ export default function MyDecks() {
       deckCards: deck.cards,
       commander: deck.commander,
       editingDeckId: deck.id,
+      description: deck.description || '',
+      tags: deck.tags || [],
+      isPublic: deck.isPublic,
     })
     navigate('/deck-builder')
+  }
+
+  const handleTogglePublic = async (deck: Deck, e: React.MouseEvent) => {
+    e.stopPropagation()
+    try {
+      await updateDeck(deck.id, { isPublic: !deck.isPublic })
+    } catch (error) {
+      console.error('Error toggling visibility:', error)
+      alert('Failed to update deck visibility.')
+    }
   }
 
   const handleAnalyzeDeck = (deck: Deck) => {
@@ -265,10 +278,18 @@ export default function MyDecks() {
                 <button type="button" className="action-btn edit" onClick={() => handleEditDeck(deck)}>
                   Edit
                 </button>
-                <button className="action-btn analyze" onClick={() => handleAnalyzeDeck(deck)}>
+                <button
+                  type="button"
+                  className={`action-btn visibility ${deck.isPublic ? 'public' : 'private'}`}
+                  onClick={(e) => handleTogglePublic(deck, e)}
+                >
+                  {deck.isPublic ? 'Public' : 'Private'}
+                </button>
+                <button type="button" className="action-btn analyze" onClick={() => handleAnalyzeDeck(deck)}>
                   Analyze
                 </button>
                 <button
+                  type="button"
                   className="action-btn delete"
                   onClick={() => setShowDeleteConfirm(deck.id)}
                 >

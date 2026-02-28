@@ -270,30 +270,12 @@ export function parseAIDeckResponse(response: string): ParsedDeck {
 
   for (const line of lines) {
     const trimmed = line.trim()
+    if (!trimmed) continue
 
-    // Check for section headers
-    if (trimmed.toLowerCase().includes('sideboard')) {
-      currentSection = 'sideboard'
-      continue
-    }
-    if (trimmed.toLowerCase().includes('commander')) {
-      currentSection = 'commander'
-      continue
-    }
-    if (
-      trimmed.toLowerCase().includes('creature') ||
-      trimmed.toLowerCase().includes('instant') ||
-      trimmed.toLowerCase().includes('sorcery') ||
-      trimmed.toLowerCase().includes('enchantment') ||
-      trimmed.toLowerCase().includes('artifact') ||
-      trimmed.toLowerCase().includes('planeswalker') ||
-      trimmed.toLowerCase().includes('land')
-    ) {
-      // These are type headers, stay in current section
-      continue
-    }
-
-    // Parse card line: "4 Lightning Bolt" or "4x Lightning Bolt"
+    // FIRST: try to parse as a card line (starts with a number)
+    // This must come before section header detection so card names
+    // containing words like "Island", "Badlands", "Commander's Sphere"
+    // are not incorrectly treated as section headers
     const match = trimmed.match(/^(\d+)x?\s+(.+)$/i)
     if (match) {
       const quantity = parseInt(match[1], 10)
@@ -307,7 +289,18 @@ export function parseAIDeckResponse(response: string): ParsedDeck {
       } else {
         mainboard.push({ quantity, name })
       }
+      continue
     }
+
+    // SECOND: detect section headers (lines that are NOT card entries)
+    const lower = trimmed.toLowerCase()
+    if (lower.includes('sideboard')) {
+      currentSection = 'sideboard'
+    } else if (lower.includes('commander')) {
+      currentSection = 'commander'
+    }
+    // Other section headers (Creatures, Lands, etc.) don't change the section,
+    // so we just skip them implicitly
   }
 
   return { mainboard, sideboard, commander }

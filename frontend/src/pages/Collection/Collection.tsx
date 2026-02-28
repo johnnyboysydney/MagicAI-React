@@ -1,8 +1,10 @@
 import { useState, useCallback, useMemo } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { useCollection, type CollectionFilters, type SortOption } from '../../hooks/useCollection'
 import { useCardSearch } from '../../hooks/useScryfall'
 import { useAuth } from '../../contexts/AuthContext'
-import type { ScryfallCard } from '../../types/card'
+import { useDeck } from '../../contexts/DeckContext'
+import type { ScryfallCard, DeckCard } from '../../types/card'
 import { getCardImageUrl, getCardPrice } from '../../types/card'
 import {
   type CardCondition,
@@ -44,6 +46,8 @@ export default function Collection() {
     bulkImport,
   } = useCollection()
   const { user, useCredits } = useAuth()
+  const { setBuilderState } = useDeck()
+  const navigate = useNavigate()
 
   // Modal states
   const [showAddModal, setShowAddModal] = useState(false)
@@ -110,6 +114,47 @@ export default function Collection() {
 
   const detailCard = showCardDetail ? filteredCards.find((c) => c.scryfallId === showCardDetail) : null
 
+  // Open AI-generated deck in the Deck Builder
+  const handleOpenInDeckBuilder = useCallback((
+    generatedCards: Array<{ name: string; quantity: number }>,
+    format: string,
+    _strategy: string,
+  ) => {
+    // Convert AI result to DeckCard Map, matching collection cards where possible
+    const deckCards = new Map<string, DeckCard>()
+
+    for (const gc of generatedCards) {
+      // Try to find the card in the user's collection for full data
+      const collectionCard = cards.find(
+        (c) => c.name.toLowerCase() === gc.name.toLowerCase()
+      )
+
+      const deckCard: DeckCard = {
+        id: collectionCard?.scryfallId || gc.name.toLowerCase().replace(/\s+/g, '-'),
+        name: gc.name,
+        quantity: gc.quantity,
+        scryfallData: {} as ScryfallCard, // Minimal - DeckBuilder will work without full Scryfall data
+        cardType: (collectionCard?.cardType || 'other') as DeckCard['cardType'],
+        cmc: collectionCard?.cmc || 0,
+        colors: collectionCard?.colors || [],
+        manaCost: collectionCard?.manaCost || '',
+        price: collectionCard?.price || 0,
+      }
+
+      deckCards.set(gc.name, deckCard)
+    }
+
+    setBuilderState({
+      deckName: `AI ${format.charAt(0).toUpperCase() + format.slice(1)} Deck`,
+      selectedFormat: format,
+      deckCards,
+      commander: null,
+    })
+
+    setShowAiBuildModal(false)
+    navigate('/deck-builder')
+  }, [cards, setBuilderState, navigate])
+
   // Toggle color filter
   const toggleColorFilter = useCallback((color: string) => {
     handleFilterChange({
@@ -132,7 +177,9 @@ export default function Collection() {
     setSearchQuery('')
   }, [handleFilterChange, setSearchQuery])
 
-  if (isLoading) {
+  // Only show full loading screen on initial load (no cards yet)
+  // This prevents modals from being destroyed during background re-fetches
+  if (isLoading && cards.length === 0) {
     return (
       <div className="collection-page">
         <div className="loading-screen">
@@ -512,6 +559,7 @@ export default function Collection() {
           userCredits={user?.credits ?? 0}
           onClose={() => setShowAiBuildModal(false)}
           onUseCredits={useCredits}
+          onOpenInDeckBuilder={handleOpenInDeckBuilder}
         />
       )}
 
@@ -786,11 +834,13 @@ function AiBuildModal({
   userCredits,
   onClose,
   onUseCredits,
+  onOpenInDeckBuilder,
 }: {
   cards: CollectionCardType[]
   userCredits: number
   onClose: () => void
   onUseCredits: (amount: number) => Promise<void>
+  onOpenInDeckBuilder: (cards: Array<{ name: string; quantity: number }>, format: string, strategy: string) => void
 }) {
   const [format, setFormat] = useState('standard')
   const [archetype, setArchetype] = useState('')
@@ -979,14 +1029,19 @@ Return ONLY the JSON, no other text.`
                 Try Again
               </button>
               <button
-                className="btn btn-primary"
+                className="btn btn-secondary"
                 onClick={() => {
                   const deckText = result.cards.map((c) => `${c.quantity} ${c.name}`).join('\n')
                   navigator.clipboard.writeText(deckText)
-                  alert('Deck list copied to clipboard! Paste it in the Deck Builder import.')
                 }}
               >
-                Copy Deck List
+                Copy List
+              </button>
+              <button
+                className="btn btn-primary"
+                onClick={() => onOpenInDeckBuilder(result.cards, format, result.strategy)}
+              >
+                Open in Deck Builder
               </button>
             </div>
           </div>

@@ -176,13 +176,14 @@ export function useCollection() {
   const [filters, setFilters] = useState<CollectionFilters>(EMPTY_FILTERS)
   const [sortBy, setSortBy] = useState<SortOption>('name')
 
-  // Load collection
+  // Load collection - use user.uid as dependency to avoid re-fetching on user object reference changes
+  const uid = user?.uid
   const loadCollection = useCallback(async () => {
-    if (!user) return
+    if (!uid) return
     setIsLoading(true)
     setError(null)
     try {
-      const data = await getCollection(user.uid)
+      const data = await getCollection(uid)
       setCards(data)
     } catch (err) {
       console.error('Failed to load collection:', err)
@@ -190,7 +191,7 @@ export function useCollection() {
     } finally {
       setIsLoading(false)
     }
-  }, [user])
+  }, [uid])
 
   useEffect(() => {
     loadCollection()
@@ -250,41 +251,41 @@ export function useCollection() {
   // Actions
   const addCard = useCallback(
     async (card: ScryfallCard, qty: number, foilQty: number, condition: CardCondition) => {
-      if (!user) return
-      await addCardService(user.uid, card, qty, foilQty, condition)
+      if (!uid) return
+      await addCardService(uid, card, qty, foilQty, condition)
       await loadCollection()
     },
-    [user, loadCollection]
+    [uid, loadCollection]
   )
 
   const updateCard = useCallback(
     async (scryfallId: string, qty: number, foilQty: number, condition: CardCondition) => {
-      if (!user) return
-      await updateCardService(user.uid, scryfallId, qty, foilQty, condition)
+      if (!uid) return
+      await updateCardService(uid, scryfallId, qty, foilQty, condition)
       await loadCollection()
     },
-    [user, loadCollection]
+    [uid, loadCollection]
   )
 
   const removeCard = useCallback(
     async (scryfallId: string) => {
-      if (!user) return
-      await removeCardService(user.uid, scryfallId)
+      if (!uid) return
+      await removeCardService(uid, scryfallId)
       setCards((prev) => prev.filter((c) => c.scryfallId !== scryfallId))
     },
-    [user]
+    [uid]
   )
 
   const bulkImport = useCallback(
     async (text: string): Promise<{ added: number; failed: string[] }> => {
-      if (!user) return { added: 0, failed: [] }
+      if (!uid) return { added: 0, failed: [] }
       const parsed = parseBulkImport(text)
       if (parsed.length === 0) return { added: 0, failed: [] }
-      const result = await bulkAddCardsService(user.uid, parsed)
+      const result = await bulkAddCardsService(uid, parsed)
       await loadCollection()
       return result
     },
-    [user, loadCollection]
+    [uid, loadCollection]
   )
 
   return {
